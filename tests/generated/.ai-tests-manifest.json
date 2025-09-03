@@ -1,0 +1,244 @@
+{
+  "tests": {
+    "conduit/settings.py": {
+      "unit": [
+        "tests/generated/conduit/settings_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/settings_integration_test.py"
+      ]
+    },
+    "conduit/wsgi.py": {
+      "unit": [
+        "tests/generated/conduit/wsgi_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/wsgi_integration_test.py"
+      ]
+    },
+    "conduit/urls.py": {
+      "unit": [
+        "tests/generated/conduit/urls_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/urls_integration_test.py"
+      ]
+    },
+    "conduit/apps/authentication/models.py": {
+      "unit": [
+        "tests/generated/conduit/apps/authentication/models_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/authentication/models_integration_test.py"
+      ]
+    },
+    "conduit/apps/authentication/signals.py": {
+      "unit": [
+        "tests/generated/conduit/apps/authentication/signals_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/authentication/signals_integration_test.py"
+      ],
+      "e2e": [
+        "tests/generated/conduit/apps/authentication/signals_e2e_test.py"
+      ]
+    },
+    "conduit/apps/authentication/urls.py": {
+      "unit": [
+        "tests/generated/conduit/apps/authentication/urls_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/authentication/urls_integration_test.py"
+      ],
+      "e2e": [
+        "tests/generated/conduit/apps/authentication/urls_e2e_test.py"
+      ]
+    },
+    "conduit/apps/authentication/renderers.py": {
+      "unit": [
+        "tests/generated/conduit/apps/authentication/renderers_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/authentication/renderers_integration_test.py"
+      ],
+      "e2e": [
+        "tests/generated/conduit/apps/authentication/renderers_e2e_test.py"
+      ]
+    },
+    "conduit/apps/authentication/backends.py": {
+      "unit": [
+        "tests/generated/conduit/apps/authentication/backends_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/authentication/backends_integration_test.py"
+      ]
+    },
+    "conduit/apps/authentication/serializers.py": {
+      "unit": [
+        "tests/generated/conduit/apps/authentication/serializers_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/authentication/serializers_integration_test.py"
+      ]
+    },
+    "conduit/apps/authentication/views.py": {
+      "unit": [
+        "tests/generated/conduit/apps/authentication/views_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/authentication/views_integration_test.py"
+      ]
+    },
+    "conduit/apps/profiles/models.py": {
+      "unit": [
+        "tests/generated/conduit/apps/profiles/models_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/profiles/models_integration_test.py"
+      ]
+    },
+    "conduit/apps/profiles/urls.py": {
+      "unit": [
+        "tests/generated/conduit/apps/profiles/urls_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/profiles/urls_integration_test.py"
+      ]
+    },
+    "conduit/apps/profiles/renderers.py": {
+      "unit": [
+        "tests/generated/conduit/apps/profiles/renderers_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/profiles/renderers_integration_test.py"
+      ]
+    },
+    "conduit/apps/profiles/serializers.py": {
+      "unit": [
+        "tests/generated/conduit/apps/profiles/serializers_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/profiles/serializers_integration_test.py"
+      ]
+    },
+    "conduit/apps/profiles/exceptions.py": {
+      "unit": [
+        "tests/generated/conduit/apps/profiles/exceptions_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/profiles/exceptions_integration_test.py"
+      ],
+      "e2e": [
+        "tests/generated/conduit/apps/profiles/exceptions_e2e_test.py"
+      ]
+    },
+    "conduit/apps/profiles/views.py": {
+      "unit": [
+        "tests/generated/conduit/apps/profiles/views_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/profiles/views_integration_test.py"
+      ]
+    },
+    "conduit/apps/core/models.py": {
+      "unit": [
+        "tests/generated/conduit/apps/core/models_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/core/models_integration_test.py"
+      ],
+      "e2e": [
+        "tests/generated/conduit/apps/core/models_e2e_test.py"
+      ]
+    },
+    "conduit/apps/core/utils.py": {
+      "unit": [
+        "tests/generated/conduit/apps/core/utils_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/core/utils_integration_test.py"
+      ],
+      "e2e": [
+        "tests/generated/conduit/apps/core/utils_e2e_test.py"
+      ]
+    },
+    "conduit/apps/core/renderers.py": {
+      "unit": [
+        "tests/generated/conduit/apps/core/renderers_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/core/renderers_integration_test.py"
+      ]
+    },
+    "conduit/apps/core/exceptions.py": {
+      "unit": [
+        "tests/generated/conduit/apps/core/exceptions_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/core/exceptions_integration_test.py"
+      ]
+    },
+    "conduit/apps/articles/models.py": {
+      "unit": [
+        "tests/generated/conduit/apps/articles/models_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/articles/models_integration_test.py"
+      ]
+    },
+    "conduit/apps/articles/signals.py": {
+      "unit": [
+        "tests/generated/conduit/apps/articles/signals_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/articles/signals_integration_test.py"
+      ]
+    },
+    "conduit/apps/articles/urls.py": {
+      "unit": [
+        "tests/generated/conduit/apps/articles/urls_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/articles/urls_integration_test.py"
+      ]
+    },
+    "conduit/apps/articles/renderers.py": {
+      "unit": [
+        "tests/generated/conduit/apps/articles/renderers_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/articles/renderers_integration_test.py"
+      ],
+      "e2e": [
+        "tests/generated/conduit/apps/articles/renderers_e2e_test.py"
+      ]
+    },
+    "conduit/apps/articles/serializers.py": {
+      "unit": [
+        "tests/generated/conduit/apps/articles/serializers_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/articles/serializers_integration_test.py"
+      ]
+    },
+    "conduit/apps/articles/views.py": {
+      "unit": [
+        "tests/generated/conduit/apps/articles/views_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/articles/views_integration_test.py"
+      ]
+    },
+    "conduit/apps/articles/relations.py": {
+      "unit": [
+        "tests/generated/conduit/apps/articles/relations_unit_test.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/articles/relations_integration_test.py"
+      ],
+      "e2e": [
+        "tests/generated/conduit/apps/articles/relations_e2e_test.py"
+      ]
+    }
+  }
+}
