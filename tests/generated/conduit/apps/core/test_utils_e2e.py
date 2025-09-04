@@ -11,75 +11,79 @@ except Exception as _e:
 if _IMPORT_ERROR:
     pytest.skip(f'Cannot import target module: {_IMPORT_ERROR}', allow_module_level=True)
 
-def test_default_length_and_allowed_chars():
+def test_default_behavior_length_and_charset():
     # Default size is 6
-    result = target_module.generate_random_string()
-    assert isinstance(result, str)
-    assert len(result) == 6
-    # All chars in result should be from DEFAULT_CHAR_STRING
+    s = target_module.generate_random_string()
+    assert isinstance(s, str)
+    assert len(s) == 6
+    # All chars should be from DEFAULT_CHAR_STRING
     allowed = set(target_module.DEFAULT_CHAR_STRING)
-    assert all(ch in allowed for ch in result)
+    assert all(ch in allowed for ch in s)
 
-@pytest.mark.parametrize("chars,size", [
-    ("abc", 10),
-    (list("XYZ"), 5),
-])
-def test_custom_chars_and_size(chars, size):
-    result = target_module.generate_random_string(chars=chars, size=size)
-    assert isinstance(result, str)
-    assert len(result) == size
-    # For list case, ensure each character in result is one of the allowed single-character elements
-    allowed = set(chars)
-    assert all(ch in allowed for ch in result)
+def test_custom_chars_and_size_with_list():
+    chars = ['A', 'B', 'C']
+    size = 10
+    s = target_module.generate_random_string(chars=chars, size=size)
+    assert isinstance(s, str)
+    assert len(s) == size
+    assert set(s).issubset(set(chars))
 
-def test_zero_size_returns_empty():
-    assert target_module.generate_random_string(size=0) == ""
+def test_custom_chars_and_size_with_tuple():
+    chars = ('x', 'y')
+    size = 4
+    s = target_module.generate_random_string(chars=chars, size=size)
+    assert len(s) == size
+    assert set(s).issubset(set(chars))
 
-def test_negative_size_returns_empty():
-    # range of negative yields empty iterator -> join over empty -> empty string
-    assert target_module.generate_random_string(size=-5) == ""
+def test_zero_size_returns_empty_string():
+    s = target_module.generate_random_string(size=0)
+    assert s == ''
+
+def test_negative_size_returns_empty_string():
+    # range with negative size produces no iterations -> empty string
+    s = target_module.generate_random_string(size=-5)
+    assert s == ''
+
+def test_non_int_size_raises_type_error():
+    # Passing a non-int (float) should raise TypeError from range()
+    with pytest.raises(TypeError):
+        target_module.generate_random_string(size=3.5)
 
 def test_empty_chars_raises_index_error():
-    # random.choice on empty sequence raises IndexError; ensure it's propagated
+    # random.choice on empty sequence raises IndexError
     with pytest.raises(IndexError):
-        target_module.generate_random_string(chars="", size=1)
+        target_module.generate_random_string(chars='', size=1)
 
-def test_bytes_chars_raises_type_error():
-    # random.choice on bytes yields ints, joining ints into a string should raise TypeError
+def test_none_chars_raises_type_error():
+    # random.choice with None raises TypeError
     with pytest.raises(TypeError):
-        target_module.generate_random_string(chars=b"abc", size=3)
+        target_module.generate_random_string(chars=None, size=1)
 
-def test_monkeypatched_random_choice_deterministic(monkeypatch):
-    # Force random.choice to return a constant value to get deterministic output
-    monkeypatch.setattr(target_module.random, "choice", lambda c: "Z")
-    res = target_module.generate_random_string(chars="abc", size=8)
-    assert res == "Z" * 8
+def test_monkeypatched_choice_produces_repeated_char(monkeypatch):
+    # Force deterministic output by patching random.choice to always return 'z'
+    def fake_choice(_seq):
+        return 'z'
+    monkeypatch.setattr(target_module.random, 'choice', fake_choice)
+    s = target_module.generate_random_string(chars='abc', size=8)
+    assert s == 'z' * 8
 
-def test_large_size_performance_and_content():
+def test_random_choice_called_exact_number_of_times(monkeypatch):
+    # Count how many times random.choice is called
+    calls = {'n': 0}
+    def counting_choice(seq):
+        calls['n'] += 1
+        # Always return the first item to keep result predictable
+        return seq[0]
+    monkeypatch.setattr(target_module.random, 'choice', counting_choice)
+    size = 7
+    s = target_module.generate_random_string(chars='xyz', size=size)
+    assert calls['n'] == size
+    assert s == 'x' * size
+
+def test_large_size_output_properties():
+    # Ensure function can handle a reasonably large size and output constraints
     size = 1000
-    res = target_module.generate_random_string(size=size)
-    assert isinstance(res, str)
-    assert len(res) == size
+    s = target_module.generate_random_string(size=size)
+    assert len(s) == size
     allowed = set(target_module.DEFAULT_CHAR_STRING)
-    assert all(ch in allowed for ch in res)
-
-def test_chars_with_multi_char_elements():
-    # If chars is a list of multi-character strings, join will concatenate chosen elements.
-    chars = ["aa", "bb", "cc"]
-    # Monkeypatch random.choice to cycle through elements deterministically
-    seq = ["aa", "bb", "cc"]
-    calls = {"i": 0}
-    def chooser(c):
-        val = seq[calls["i"] % len(seq)]
-        calls["i"] += 1
-        return val
-    # Patch and call
-    import types
-    monkeypatch = pytest.MonkeyPatch()
-    try:
-        monkeypatch.setattr(target_module.random, "choice", chooser)
-        res = target_module.generate_random_string(chars=chars, size=3)
-        # Expect concatenation of the three selected multi-char strings
-        assert res == "aabbcc"
-    finally:
-        monkeypatch.undo()
+    assert set(s).issubset(allowed)

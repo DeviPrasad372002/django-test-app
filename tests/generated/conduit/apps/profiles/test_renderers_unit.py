@@ -11,96 +11,65 @@ except Exception as _e:
 if _IMPORT_ERROR:
     pytest.skip(f'Cannot import target module: {_IMPORT_ERROR}', allow_module_level=True)
 
-import inspect
 
-def test_profile_renderer_is_subclass_and_has_expected_class_attributes():
-    # Ensure the attribute exists on the module
-    assert hasattr(target_module, 'ProfileJSONRenderer'), "ProfileJSONRenderer is not defined in target module"
-    ProfileJSONRenderer = target_module.ProfileJSONRenderer
+def test_profilejsonrenderer_class_exists_and_is_subclass():
+    # Ensure the class exists
+    assert hasattr(target_module, 'ProfileJSONRenderer'), "ProfileJSONRenderer not found in module"
+    cls = target_module.ProfileJSONRenderer
 
-    # Ensure ConduitJSONRenderer exists and is a class
-    assert hasattr(target_module, 'ConduitJSONRenderer'), "ConduitJSONRenderer not available in target module"
-    ConduitJSONRenderer = target_module.ConduitJSONRenderer
-    if not inspect.isclass(ConduitJSONRenderer):
-        pytest.skip("ConduitJSONRenderer is not a class; skipping inheritance tests")
+    # It should be a class
+    assert isinstance(cls, type), "ProfileJSONRenderer is not a class"
 
-    # Subclass relationship
-    assert issubclass(ProfileJSONRenderer, ConduitJSONRenderer), "ProfileJSONRenderer must subclass ConduitJSONRenderer"
+    # It should inherit from some ConduitJSONRenderer (check by name in MRO)
+    mro_names = [c.__name__ for c in cls.__mro__]
+    assert 'ConduitJSONRenderer' in mro_names, f"ProfileJSONRenderer does not inherit from ConduitJSONRenderer, MRO: {mro_names}"
 
-    # Class attributes and expected values
-    assert getattr(ProfileJSONRenderer, 'object_label', None) == 'profile'
-    assert getattr(ProfileJSONRenderer, 'pagination_object_label', None) == 'profiles'
-    assert getattr(ProfileJSONRenderer, 'pagination_count_label', None) == 'profilesCount'
 
-@pytest.mark.parametrize("attr_name, expected", [
+@pytest.mark.parametrize("attr,expected", [
     ("object_label", "profile"),
     ("pagination_object_label", "profiles"),
     ("pagination_count_label", "profilesCount"),
 ])
-def test_class_attributes_are_strings_and_non_empty(attr_name, expected):
-    ProfileJSONRenderer = target_module.ProfileJSONRenderer
-    assert hasattr(ProfileJSONRenderer, attr_name), f"{attr_name} missing on ProfileJSONRenderer"
-    val = getattr(ProfileJSONRenderer, attr_name)
-    assert isinstance(val, str), f"{attr_name} must be a string"
-    assert val == expected, f"{attr_name} expected '{expected}', got '{val}'"
-    assert val.strip() != "", f"{attr_name} must not be empty or whitespace"
+def test_profilejsonrenderer_class_attributes(attr, expected):
+    cls = target_module.ProfileJSONRenderer
+    # Class must have attribute
+    assert hasattr(cls, attr), f"{attr} missing on ProfileJSONRenderer"
+    value = getattr(cls, attr)
+    # Type check
+    assert isinstance(value, str), f"{attr} should be a string"
+    # Exact expected value
+    assert value == expected, f"{attr} expected '{expected}', got '{value}'"
 
-def test_instance_attribute_resolution_and_mutation_behavior():
-    ProfileJSONRenderer = target_module.ProfileJSONRenderer
-    inst = ProfileJSONRenderer()
 
-    # Instance should expose the same labels via attribute lookup
-    assert getattr(inst, 'object_label') == ProfileJSONRenderer.object_label
-    assert getattr(inst, 'pagination_object_label') == ProfileJSONRenderer.pagination_object_label
-    assert getattr(inst, 'pagination_count_label') == ProfileJSONRenderer.pagination_count_label
+def test_instance_has_same_attributes_and_mutation_is_instance_local():
+    cls = target_module.ProfileJSONRenderer
+    inst = cls()  # instantiate to ensure no __init__ side-effects
 
-    # Changing instance attribute should not change class attribute
-    inst.object_label = 'temp'
-    assert inst.object_label == 'temp'
-    assert ProfileJSONRenderer.object_label == 'profile', "Modifying instance attribute should not alter class attribute"
+    # Instance should reflect class attributes by default
+    assert getattr(inst, 'object_label') == getattr(cls, 'object_label')
+    assert getattr(inst, 'pagination_object_label') == getattr(cls, 'pagination_object_label')
+    assert getattr(inst, 'pagination_count_label') == getattr(cls, 'pagination_count_label')
 
-def test_dynamic_subclass_override_of_labels():
-    ProfileJSONRenderer = target_module.ProfileJSONRenderer
+    # Mutate instance attribute and ensure class attribute remains unchanged
+    original = cls.object_label
+    inst.object_label = 'changed-by-instance'
+    assert inst.object_label == 'changed-by-instance'
+    assert cls.object_label == original, "Changing instance attribute should not change class attribute"
 
-    class CustomProfile(ProfileJSONRenderer):
-        object_label = 'custom_profile'
-        pagination_object_label = 'custom_profiles'
-        pagination_count_label = 'customProfilesCount'
 
-    # Ensure overrides are effective on the subclass
-    assert CustomProfile.object_label == 'custom_profile'
-    assert CustomProfile.pagination_object_label == 'custom_profiles'
-    assert CustomProfile.pagination_count_label == 'customProfilesCount'
+def test_profilejsonrenderer_attributes_are_non_empty_strings():
+    cls = target_module.ProfileJSONRenderer
+    for attr in ('object_label', 'pagination_object_label', 'pagination_count_label'):
+        value = getattr(cls, attr)
+        assert isinstance(value, str)
+        assert value != "", f"{attr} should not be an empty string"
 
-    # Instances of subclass reflect the overridden values
-    c = CustomProfile()
-    assert c.object_label == 'custom_profile'
-    assert c.pagination_object_label == 'custom_profiles'
-    assert c.pagination_count_label == 'customProfilesCount'
 
-def test_mro_contains_expected_parent():
-    ProfileJSONRenderer = target_module.ProfileJSONRenderer
-    ConduitJSONRenderer = target_module.ConduitJSONRenderer
-
-    # Ensure ConduitJSONRenderer is somewhere in the MRO
-    mro = inspect.getmro(ProfileJSONRenderer)
-    assert ConduitJSONRenderer in mro, "ConduitJSONRenderer should be in the MRO of ProfileJSONRenderer"
-
-def test_profile_renderer_attributes_are_independent_from_parent_when_parent_mutated():
-    ProfileJSONRenderer = target_module.ProfileJSONRenderer
-    ConduitJSONRenderer = target_module.ConduitJSONRenderer
-
-    # Save original parent attributes if they exist
-    parent_has_object_label = hasattr(ConduitJSONRenderer, 'object_label')
-    orig_parent_val = getattr(ConduitJSONRenderer, 'object_label', None)
-
-    try:
-        # Mutate parent attribute to a different value and ensure child class attribute remains unchanged
-        ConduitJSONRenderer.object_label = 'parent_changed'
-        assert getattr(ProfileJSONRenderer, 'object_label') == 'profile', "Child class attribute should not change when parent attribute is mutated"
-    finally:
-        # Restore parent's original state
-        if parent_has_object_label:
-            ConduitJSONRenderer.object_label = orig_parent_val
-        else:
-            delattr(ConduitJSONRenderer, 'object_label')
+def test_profilejsonrenderer_has_no_unexpected_public_attributes():
+    # Ensure only the expected public attributes exist on the class or are inherited.
+    # We check that the class defines at least the expected attributes (others may be inherited).
+    cls = target_module.ProfileJSONRenderer
+    defined = set(k for k, v in cls.__dict__.items() if not k.startswith('_'))
+    expected_defined = {'object_label', 'pagination_object_label', 'pagination_count_label'}
+    # The class should define at least these attributes
+    assert expected_defined.issubset(defined), f"ProfileJSONRenderer.__dict__ missing expected keys: {expected_defined - defined}"

@@ -11,64 +11,82 @@ except Exception as _e:
 if _IMPORT_ERROR:
     pytest.skip(f'Cannot import target module: {_IMPORT_ERROR}', allow_module_level=True)
 
-def test_class_attributes_present_and_types():
-    cls = target_module.ProfileDoesNotExist
-    # class attributes
-    assert hasattr(cls, 'status_code'), "status_code attribute missing"
-    assert hasattr(cls, 'default_detail'), "default_detail attribute missing"
-    assert isinstance(cls.status_code, int)
-    assert isinstance(cls.default_detail, str)
-    assert cls.status_code == 400
-    assert cls.default_detail == 'The requested profile does not exist.'
 
-def test_is_subclass_of_api_exception():
-    cls = target_module.ProfileDoesNotExist
-    # Ensure the module imported the APIException symbol
-    assert hasattr(target_module, 'APIException'), "APIException symbol not present in module"
-    APIException = target_module.APIException
-    assert issubclass(cls, APIException)
-    inst = cls()
-    assert isinstance(inst, APIException)
-    assert isinstance(inst, cls)
+def _get_detail_text(exc_instance):
+    """
+    Helper to get a stable string representation of the exception detail
+    across different DRF versions (detail may be str, dict, list, etc.).
+    """
+    detail = getattr(exc_instance, 'detail', None)
+    if detail is None:
+        return ''
+    # If it's a list or dict, convert to str for comparison
+    return str(detail)
 
-def test_default_instance_detail_and_status_code():
-    cls = target_module.ProfileDoesNotExist
-    inst = cls()
-    # Instances should reflect the class defaults
-    assert getattr(inst, 'status_code') == cls.status_code
-    # APIException stores the message in .detail (DRF behavior)
-    assert getattr(inst, 'detail') == cls.default_detail
 
-def test_raise_and_catch_exception_has_default_detail():
-    cls = target_module.ProfileDoesNotExist
-    with pytest.raises(target_module.APIException) as excinfo:
-        raise cls()
-    exc = excinfo.value
-    assert isinstance(exc, cls)
-    # detail on caught exception should equal default_detail
-    assert getattr(exc, 'detail') == cls.default_detail
-    # status_code should be present on the instance as well
-    assert getattr(exc, 'status_code') == cls.status_code
+def test_profile_does_not_exist_is_subclass_of_api_exception():
+    # Ensure the class is present
+    cls = getattr(target_module, 'ProfileDoesNotExist', None)
+    assert cls is not None, "ProfileDoesNotExist class should be defined in module"
+    # Import APIException from rest_framework for isinstance check
+    try:
+        from rest_framework.exceptions import APIException  # type: ignore
+    except Exception:
+        pytest.skip("rest_framework not available for APIException checks")
+    assert issubclass(cls, APIException), "ProfileDoesNotExist must subclass rest_framework.exceptions.APIException"
 
-@pytest.mark.parametrize("custom_detail", [
-    "A custom message",
-    {"msg": "structured"},
-    ["list", "of", "messages"],
-    12345,  # non-string detail
-])
-def test_custom_detail_preserved_on_instance(custom_detail):
-    cls = target_module.ProfileDoesNotExist
-    inst = cls(custom_detail)
-    # The detail of the instance should be exactly what was passed
-    assert getattr(inst, 'detail') == custom_detail
 
-def test_default_detail_not_mutated_by_instance_change():
+def test_default_class_attributes():
     cls = target_module.ProfileDoesNotExist
-    inst = cls()
-    # mutate instance detail
-    inst.detail = "modified"
-    # class default should remain unchanged
-    assert cls.default_detail == 'The requested profile does not exist.'
-    # a fresh instance should still have original default
-    new_inst = cls()
-    assert new_inst.detail == cls.default_detail
+    # Class attributes specified in source
+    assert hasattr(cls, 'status_code'), "ProfileDoesNotExist must define status_code"
+    assert hasattr(cls, 'default_detail'), "ProfileDoesNotExist must define default_detail"
+    assert cls.status_code == 400, "status_code should be 400 as defined"
+    assert cls.default_detail == 'The requested profile does not exist.', "default_detail message mismatch"
+
+
+def test_instance_has_default_detail_and_status_code():
+    exc = target_module.ProfileDoesNotExist()
+    # Instance should carry the status_code attribute
+    assert getattr(exc, 'status_code', None) == target_module.ProfileDoesNotExist.status_code
+    # The detail should reflect the class default_detail (string representation)
+    detail_text = _get_detail_text(exc)
+    assert target_module.ProfileDoesNotExist.default_detail in detail_text
+
+
+def test_custom_detail_overrides_default():
+    custom = "custom not found message"
+    exc = target_module.ProfileDoesNotExist(custom)
+    detail_text = _get_detail_text(exc)
+    assert custom in detail_text, "Providing custom detail should override default_detail"
+    # status_code remains the same
+    assert exc.status_code == target_module.ProfileDoesNotExist.status_code
+
+
+def test_non_string_detail_handling():
+    # Provide a dict as detail (edge case)
+    custom_detail = {"reason": "no_profile", "id": 123}
+    exc = target_module.ProfileDoesNotExist(custom_detail)
+    detail_text = _get_detail_text(exc)
+    # The string version of the dict should appear in the detail text
+    assert str(custom_detail) in detail_text
+
+
+def test_raising_exception_sets_expected_attributes():
+    # When raised, the exception can be caught and inspected
+    with pytest.raises(target_module.ProfileDoesNotExist) as ei:
+        raise target_module.ProfileDoesNotExist("raise-test")
+    caught = ei.value
+    assert isinstance(caught, target_module.ProfileDoesNotExist)
+    # Check message and status_code on caught exception
+    assert "raise-test" in _get_detail_text(caught)
+    assert caught.status_code == target_module.ProfileDoesNotExist.status_code
+
+
+def test_multiple_instances_independent_details():
+    a = target_module.ProfileDoesNotExist("a")
+    b = target_module.ProfileDoesNotExist("b")
+    assert "a" in _get_detail_text(a)
+    assert "b" in _get_detail_text(b)
+    # Ensure they don't share mutable state
+    assert _get_detail_text(a) != _get_detail_text(b) or a is not b

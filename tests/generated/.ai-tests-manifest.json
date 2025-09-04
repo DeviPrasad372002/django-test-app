@@ -30,6 +30,9 @@
       ],
       "e2e": [
         "tests/generated/conduit/apps/core/test_utils_e2e.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/core/test_utils_integration.py"
       ]
     },
     "conduit/apps/core/renderers.py": {
@@ -40,6 +43,9 @@
     "conduit/apps/articles/renderers.py": {
       "unit": [
         "tests/generated/conduit/apps/articles/test_renderers_unit.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/articles/test_renderers_integration.py"
       ]
     },
     "conduit/apps/articles/relations.py": {
@@ -48,6 +54,14 @@
       ],
       "e2e": [
         "tests/generated/conduit/apps/articles/test_relations_e2e.py"
+      ]
+    },
+    "conduit/apps/authentication/signals.py": {
+      "unit": [
+        "tests/generated/conduit/apps/authentication/test_signals_unit.py"
+      ],
+      "e2e": [
+        "tests/generated/conduit/apps/authentication/test_signals_e2e.py"
       ]
     }
   }

@@ -11,70 +11,84 @@ except Exception as _e:
 if _IMPORT_ERROR:
     pytest.skip(f'Cannot import target module: {_IMPORT_ERROR}', allow_module_level=True)
 
-def test_module_loaded():
-    # Sanity check: module should be imported by the header
-    assert target_module is not None
+def test_profilejsonrenderer_class_attributes_present_and_correct():
+    # Ensure class exists
+    assert hasattr(target_module, 'ProfileJSONRenderer'), "ProfileJSONRenderer not found in module"
+    cls = target_module.ProfileJSONRenderer
 
-def test_profilejsonrenderer_class_exists_and_subclass():
-    # The class should exist in the module
-    assert hasattr(target_module, 'ProfileJSONRenderer'), "ProfileJSONRenderer missing"
-    ProfileJSONRenderer = target_module.ProfileJSONRenderer
-    # It should be a class
-    assert isinstance(ProfileJSONRenderer, type)
-    # It should subclass ConduitJSONRenderer imported into the module
-    assert hasattr(target_module, 'ConduitJSONRenderer'), "ConduitJSONRenderer missing in module namespace"
-    assert issubclass(ProfileJSONRenderer, target_module.ConduitJSONRenderer)
+    # Expected labels from source
+    assert getattr(cls, 'object_label') == 'profile'
+    assert getattr(cls, 'pagination_object_label') == 'profiles'
+    assert getattr(cls, 'pagination_count_label') == 'profilesCount'
 
-@pytest.mark.parametrize("attr,expected", [
-    ("object_label", "profile"),
-    ("pagination_object_label", "profiles"),
-    ("pagination_count_label", "profilesCount"),
-])
-def test_class_labels_are_correct(attr, expected):
-    ProfileJSONRenderer = target_module.ProfileJSONRenderer
-    # class attribute exists
-    assert hasattr(ProfileJSONRenderer, attr), f"{attr} missing on class"
-    value = getattr(ProfileJSONRenderer, attr)
-    # correct value and type
-    assert isinstance(value, str)
-    assert value == expected
+    # Types are strings and not empty
+    assert isinstance(cls.object_label, str) and cls.object_label
+    assert isinstance(cls.pagination_object_label, str) and cls.pagination_object_label
+    assert isinstance(cls.pagination_count_label, str) and cls.pagination_count_label
 
-def test_instance_attributes_and_override_does_not_mutate_class():
-    ProfileJSONRenderer = target_module.ProfileJSONRenderer
-    inst = ProfileJSONRenderer()
-    # Instance should expose the same attributes as class by default
-    for attr in ("object_label", "pagination_object_label", "pagination_count_label"):
-        assert hasattr(inst, attr)
-        assert getattr(inst, attr) == getattr(ProfileJSONRenderer, attr)
+def test_profilejsonrenderer_is_subclass_of_conduitjsonrenderer():
+    cls = target_module.ProfileJSONRenderer
+    # The module imports ConduitJSONRenderer into its namespace; ensure subclass relation holds
+    assert hasattr(target_module, 'ConduitJSONRenderer'), "ConduitJSONRenderer base class not imported in module"
+    base = target_module.ConduitJSONRenderer
+    assert issubclass(cls, base), "ProfileJSONRenderer should be a subclass of ConduitJSONRenderer"
 
-    # Mutating instance attribute should not change the class attribute
-    old_class_value = ProfileJSONRenderer.object_label
-    inst.object_label = "temporary"
-    assert inst.object_label == "temporary"
-    assert ProfileJSONRenderer.object_label == old_class_value
+def test_instance_sees_class_attributes_and_instance_override_does_not_mutate_class():
+    cls = target_module.ProfileJSONRenderer
+    inst1 = cls()
+    inst2 = cls()
 
-def test_dynamic_subclass_can_override_labels():
-    ProfileJSONRenderer = target_module.ProfileJSONRenderer
-    # Create a dynamic subclass that overrides labels
-    class CustomProfileRenderer(ProfileJSONRenderer):
-        object_label = "custom_profile"
-        pagination_object_label = "custom_profiles"
-        pagination_count_label = "custom_profiles_count"
+    # Instances initially reflect class attributes
+    assert inst1.object_label == 'profile'
+    assert inst2.object_label == 'profile'
 
-    # Ensure subclass has expected overridden values
-    c = CustomProfileRenderer()
-    assert CustomProfileRenderer.object_label == "custom_profile"
-    assert CustomProfileRenderer.pagination_object_label == "custom_profiles"
-    assert CustomProfileRenderer.pagination_count_label == "custom_profiles_count"
+    # Overriding on one instance should not change the class or other instances
+    inst1.object_label = 'custom_profile'
+    assert inst1.object_label == 'custom_profile'
+    # Class attribute must remain unchanged
+    assert cls.object_label == 'profile'
+    # New instances should still see original class value
+    assert inst2.object_label == 'profile'
+    inst3 = cls()
+    assert inst3.object_label == 'profile'
 
-    # Instance should reflect subclass values
-    assert c.object_label == "custom_profile"
-    assert c.pagination_object_label == "custom_profiles"
-    assert c.pagination_count_label == "custom_profiles_count"
+def test_attribute_access_via_getattr_and_dir():
+    cls = target_module.ProfileJSONRenderer
+    inst = cls()
 
-def test_attributes_are_non_empty_strings():
-    ProfileJSONRenderer = target_module.ProfileJSONRenderer
-    for attr in ("object_label", "pagination_object_label", "pagination_count_label"):
-        val = getattr(ProfileJSONRenderer, attr)
-        assert isinstance(val, str)
-        assert val != "" and val.strip() == val  # non-empty and no surrounding whitespace
+    # getattr should return the same values
+    assert getattr(inst, 'object_label') == 'profile'
+    assert getattr(inst, 'pagination_object_label') == 'profiles'
+    assert getattr(inst, 'pagination_count_label') == 'profilesCount'
+
+    # The attributes should appear in dir() of class and instance (class-level)
+    d = dir(cls)
+    assert 'object_label' in d
+    assert 'pagination_object_label' in d
+    assert 'pagination_count_label' in d
+
+def test_pagination_count_label_convention():
+    # Small behavioral test: pagination_count_label ends with 'Count' as per naming convention
+    cls = target_module.ProfileJSONRenderer
+    assert cls.pagination_count_label.endswith('Count'), "pagination_count_label should end with 'Count'"
+
+def test_can_change_class_attributes_and_reflected_in_new_instances():
+    cls = target_module.ProfileJSONRenderer
+    original = cls.object_label
+    try:
+        cls.object_label = 'modified'
+        # New instance should pick up modified class attribute
+        new_inst = cls()
+        assert new_inst.object_label == 'modified'
+    finally:
+        # Restore original to avoid side effects for other tests
+        cls.object_label = original
+
+def test_repr_and_str_do_not_error_when_called():
+    # Ensure calling repr/str on class and instance doesn't raise
+    cls = target_module.ProfileJSONRenderer
+    inst = cls()
+    assert isinstance(repr(cls), str)
+    assert isinstance(str(cls), str)
+    assert isinstance(repr(inst), str)
+    assert isinstance(str(inst), str)

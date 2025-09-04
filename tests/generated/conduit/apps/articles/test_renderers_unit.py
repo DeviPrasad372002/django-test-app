@@ -11,88 +11,91 @@ except Exception as _e:
 if _IMPORT_ERROR:
     pytest.skip(f'Cannot import target module: {_IMPORT_ERROR}', allow_module_level=True)
 
+@pytest.mark.parametrize("cls_name,expected", [
+    ("ArticleJSONRenderer", {
+        "object_label": "article",
+        "pagination_object_label": "articles",
+        "pagination_count_label": "articlesCount",
+    }),
+    ("CommentJSONRenderer", {
+        "object_label": "comment",
+        "pagination_object_label": "comments",
+        "pagination_count_label": "commentsCount",
+    }),
+])
+def test_class_attributes_exist_and_have_expected_values(cls_name, expected):
+    cls = getattr(target_module, cls_name)
+    # class attributes should exist and equal expected values
+    for attr, val in expected.items():
+        assert hasattr(cls, attr), f"{cls_name} missing attribute {attr}"
+        assert getattr(cls, attr) == val
 
-def test_article_renderer_class_attributes_exist_and_are_strings():
-    cls = target_module.ArticleJSONRenderer
-    assert hasattr(cls, 'object_label'), "ArticleJSONRenderer should define object_label"
-    assert hasattr(cls, 'pagination_object_label'), "ArticleJSONRenderer should define pagination_object_label"
-    assert hasattr(cls, 'pagination_count_label'), "ArticleJSONRenderer should define pagination_count_label"
-
-    assert isinstance(cls.object_label, str)
-    assert isinstance(cls.pagination_object_label, str)
-    assert isinstance(cls.pagination_count_label, str)
-
-    assert cls.object_label == 'article'
-    assert cls.pagination_object_label == 'articles'
-    assert cls.pagination_count_label == 'articlesCount'
-
-
-def test_comment_renderer_class_attributes_exist_and_are_strings():
-    cls = target_module.CommentJSONRenderer
-    assert hasattr(cls, 'object_label'), "CommentJSONRenderer should define object_label"
-    assert hasattr(cls, 'pagination_object_label'), "CommentJSONRenderer should define pagination_object_label"
-    assert hasattr(cls, 'pagination_count_label'), "CommentJSONRenderer should define pagination_count_label"
-
-    assert isinstance(cls.object_label, str)
-    assert isinstance(cls.pagination_object_label, str)
-    assert isinstance(cls.pagination_count_label, str)
-
-    assert cls.object_label == 'comment'
-    assert cls.pagination_object_label == 'comments'
-    assert cls.pagination_count_label == 'commentsCount'
-
-
-def test_inheritance_from_conduit_json_renderer():
-    # Ensure the two classes inherit from the expected base
-    base = getattr(target_module, 'ConduitJSONRenderer', None)
-    assert base is not None, "ConduitJSONRenderer should be imported into the module"
-    assert issubclass(target_module.ArticleJSONRenderer, base)
-    assert issubclass(target_module.CommentJSONRenderer, base)
-
-
-def test_instance_attribute_override_does_not_change_class():
-    cls = target_module.ArticleJSONRenderer
-    inst = cls()
-    original_class_value = cls.object_label
-    # override on the instance
-    inst.object_label = 'temp-override'
-    assert inst.object_label == 'temp-override'
-    # class attribute should remain unchanged
-    assert cls.object_label == original_class_value
-
-
-def test_setting_class_attribute_with_monkeypatch_affects_only_target_class(monkeypatch):
-    # Temporarily change ArticleJSONRenderer.pagination_count_label
+def test_attributes_are_defined_on_class_not_only_inherited():
+    # Ensure these attributes are defined on the classes themselves (__dict__), not merely inherited
     article_cls = target_module.ArticleJSONRenderer
     comment_cls = target_module.CommentJSONRenderer
 
-    original_article = article_cls.pagination_count_label
-    original_comment = comment_cls.pagination_count_label
+    for attr in ("object_label", "pagination_object_label", "pagination_count_label"):
+        assert attr in article_cls.__dict__, f"{attr} should be in ArticleJSONRenderer.__dict__"
+        assert attr in comment_cls.__dict__, f"{attr} should be in CommentJSONRenderer.__dict__"
 
-    monkeypatch.setattr(article_cls, 'pagination_count_label', 'temporaryArticlesCount', raising=False)
+def test_subclass_of_conduit_json_renderer():
+    # Ensure both renderers are subclasses of the base ConduitJSONRenderer imported into the module
+    base = getattr(target_module, "ConduitJSONRenderer", None)
+    assert base is not None, "ConduitJSONRenderer should be available in target module"
+    assert issubclass(target_module.ArticleJSONRenderer, base)
+    assert issubclass(target_module.CommentJSONRenderer, base)
+
+def test_labels_are_strings_and_non_empty():
+    for cls in (target_module.ArticleJSONRenderer, target_module.CommentJSONRenderer):
+        for attr in ("object_label", "pagination_object_label", "pagination_count_label"):
+            val = getattr(cls, attr)
+            assert isinstance(val, str)
+            assert val != "", f"{cls.__name__}.{attr} should not be empty"
+
+def test_different_classes_have_different_labels_where_expected():
+    art = target_module.ArticleJSONRenderer
+    com = target_module.CommentJSONRenderer
+
+    # object_label should differ
+    assert art.object_label != com.object_label
+    # pagination_object_label should differ
+    assert art.pagination_object_label != com.pagination_object_label
+    # pagination_count_label should differ
+    assert art.pagination_count_label != com.pagination_count_label
+
+def test_instance_override_does_not_modify_class_attribute():
+    # create instance without calling __init__ to avoid side effects if __init__ exists
+    cls = target_module.ArticleJSONRenderer
+    inst = object.__new__(cls)
+    original = cls.object_label
+    # set attribute on instance
+    inst.object_label = "modified-on-instance"
+    # instance has modified value
+    assert inst.object_label == "modified-on-instance"
+    # class attribute remains unchanged
+    assert cls.object_label == original
+
+def test_class_attribute_types_immutable_expected_behavior():
+    # Ensure that class attributes are basic immutable types (strings) and modifying a class attribute changes class-level value
+    cls = target_module.CommentJSONRenderer
+    original = cls.pagination_count_label
     try:
-        assert article_cls.pagination_count_label == 'temporaryArticlesCount'
-        # Ensure comment class remains unchanged
-        assert comment_cls.pagination_count_label == original_comment
+        cls.pagination_count_label = "tempChange"
+        assert cls.pagination_count_label == "tempChange"
     finally:
-        # monkeypatch will restore automatically at test end; ensure values are consistent now
-        pass
+        # restore original to avoid affecting other tests
+        cls.pagination_count_label = original
 
+def test_repr_and_str_do_not_raise():
+    # Simple sanity check: str() and repr() on class and a lightweight instance should not raise
+    cls = target_module.ArticleJSONRenderer
+    s = str(cls)
+    r = repr(cls)
+    assert isinstance(s, str) and isinstance(r, str)
 
-@pytest.mark.parametrize("cls_name, expected_object_label, expected_pagination_label, expected_count_label", [
-    ("ArticleJSONRenderer", "article", "articles", "articlesCount"),
-    ("CommentJSONRenderer", "comment", "comments", "commentsCount"),
-])
-def test_attributes_via_getattr(cls_name, expected_object_label, expected_pagination_label, expected_count_label):
-    cls = getattr(target_module, cls_name)
-    assert getattr(cls, 'object_label') == expected_object_label
-    assert getattr(cls, 'pagination_object_label') == expected_pagination_label
-    assert getattr(cls, 'pagination_count_label') == expected_count_label
-
-
-def test_class_attributes_are_distinct_between_classes():
-    a = target_module.ArticleJSONRenderer
-    c = target_module.CommentJSONRenderer
-    assert a.object_label != c.object_label
-    assert a.pagination_object_label != c.pagination_object_label
-    assert a.pagination_count_label != c.pagination_count_label
+    # create instance without __init__
+    inst = object.__new__(cls)
+    # str/repr on instance
+    assert isinstance(str(inst), str)
+    assert isinstance(repr(inst), str)

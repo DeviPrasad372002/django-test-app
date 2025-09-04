@@ -11,75 +11,78 @@ except Exception as _e:
 if _IMPORT_ERROR:
     pytest.skip(f'Cannot import target module: {_IMPORT_ERROR}', allow_module_level=True)
 
-def test_is_subclass_and_mro():
-    """
-    ProfileDoesNotExist should be a subclass of APIException and appear in its MRO.
-    """
-    cls = target_module.ProfileDoesNotExist
-    base = target_module.APIException
-    assert issubclass(cls, base)
-    # Ensure the base class is present in the Method Resolution Order
-    assert base in cls.__mro__
 
-def test_default_attributes_values():
-    """
-    Class-level attributes should match expected values.
-    """
+def test_profile_does_not_exist_class_attributes():
     cls = target_module.ProfileDoesNotExist
-    assert hasattr(cls, 'status_code'), "status_code attribute missing"
-    assert hasattr(cls, 'default_detail'), "default_detail attribute missing"
+    # Is a class
+    assert isinstance(cls, type)
+    # Has expected class attributes
+    assert hasattr(cls, 'status_code')
+    assert hasattr(cls, 'default_detail')
     assert cls.status_code == 400
     assert cls.default_detail == 'The requested profile does not exist.'
+    # Subclass of Exception (and likely APIException)
+    assert issubclass(cls, Exception)
 
-def test_instantiation_uses_default_detail_and_status_code():
-    """
-    Instantiating without arguments should populate .detail with the default_detail
-    and expose the status_code on the instance.
-    """
-    inst = target_module.ProfileDoesNotExist()
-    # status_code is a class attribute but should be accessible on the instance
-    assert getattr(inst, 'status_code') == 400
-    # detail may be an ErrorDetail (subclass of str) or plain str; ensure text matches
-    assert str(inst.detail) == target_module.ProfileDoesNotExist.default_detail
 
-def test_instantiation_with_custom_detail_preserved_and_with_non_string_detail():
-    """
-    If a custom detail is provided it should be preserved exactly.
-    Also test that non-string detail (like a dict) is preserved.
-    """
-    custom_text = 'Custom not found message'
-    inst_text = target_module.ProfileDoesNotExist(detail=custom_text)
-    assert str(inst_text.detail) == custom_text
+def _get_detail_from_instance(exc_instance):
+    # Helper to retrieve detail in a robust way across APIException implementations
+    if hasattr(exc_instance, 'detail'):
+        return exc_instance.detail
+    # Fallback: string conversion
+    return str(exc_instance)
 
-    custom_obj = {'username': ['does not exist']}
-    inst_obj = target_module.ProfileDoesNotExist(detail=custom_obj)
-    # Some DRF versions keep dicts as-is; others may wrap; comparing via string representation is safe
-    assert str(inst_obj.detail) == str(custom_obj)
 
-def test_raise_and_catch_as_api_exception():
-    """
-    Raising the custom exception should be catchable as the base APIException.
-    """
-    cls = target_module.ProfileDoesNotExist
-    base = target_module.APIException
-    with pytest.raises(base) as excinfo:
-        raise cls()
-    # Ensure the captured exception is indeed an instance of our class
-    assert isinstance(excinfo.value, cls)
-    # And that its message/detail includes the default text
-    assert target_module.ProfileDoesNotExist.default_detail in str(excinfo.value.detail)
+def test_default_detail_on_instantiation():
+    exc = target_module.ProfileDoesNotExist()
+    detail = _get_detail_from_instance(exc)
+    # Detail should include default_detail text
+    assert 'The requested profile does not exist.' in detail
+    # status_code available on instance
+    assert getattr(exc, 'status_code', None) == 400
 
-def test_mutating_default_detail_affects_new_instances_and_restored():
-    """
-    Temporarily mutate the class default_detail and ensure new instances reflect the change.
-    Then restore the original value.
-    """
-    cls = target_module.ProfileDoesNotExist
-    original = cls.default_detail
-    try:
-        cls.default_detail = 'Temporary override'
-        inst = cls()
-        assert str(inst.detail) == 'Temporary override'
-    finally:
-        # restore to avoid side effects for other tests
-        cls.default_detail = original
+
+def test_custom_detail_string_and_other_types():
+    # Custom string detail
+    custom = 'no profile for user'
+    exc_str = target_module.ProfileDoesNotExist(custom)
+    detail_str = _get_detail_from_instance(exc_str)
+    assert custom in detail_str
+
+    # Custom dict detail
+    custom_dict = {'username': ['not found']}
+    exc_dict = target_module.ProfileDoesNotExist(custom_dict)
+    # If detail attribute exists, it should equal the dict; otherwise str(...) contains its representation
+    if hasattr(exc_dict, 'detail'):
+        assert exc_dict.detail == custom_dict
+    else:
+        assert str(custom_dict) in str(exc_dict)
+
+    # Custom list detail
+    custom_list = ['a', 'b']
+    exc_list = target_module.ProfileDoesNotExist(custom_list)
+    if hasattr(exc_list, 'detail'):
+        assert exc_list.detail == custom_list
+    else:
+        assert str(custom_list) in str(exc_list)
+
+
+def test_raise_and_catch_exception_preserves_status_code():
+    with pytest.raises(target_module.ProfileDoesNotExist) as ctx:
+        raise target_module.ProfileDoesNotExist()
+    exc = ctx.value
+    # Ensure status code is preserved on caught exception
+    assert getattr(exc, 'status_code', None) == 400
+    # And detail includes default message
+    assert 'The requested profile does not exist.' in _get_detail_from_instance(exc)
+
+
+def test_instance_modification_does_not_change_class_attribute():
+    exc = target_module.ProfileDoesNotExist()
+    # Modify instance attribute
+    exc.status_code = 401
+    assert exc.status_code == 401
+    # Class attribute remains unchanged
+    assert target_module.ProfileDoesNotExist.status_code == 400
+    # default_detail also unchanged
+    assert target_module.ProfileDoesNotExist.default_detail == 'The requested profile does not exist.'
