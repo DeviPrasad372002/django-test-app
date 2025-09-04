@@ -1,0 +1,54 @@
+{
+  "tests": {
+    "conduit/apps/profiles/renderers.py": {
+      "unit": [
+        "tests/generated/conduit/apps/profiles/test_renderers_unit.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/profiles/test_renderers_integration.py"
+      ],
+      "e2e": [
+        "tests/generated/conduit/apps/profiles/test_renderers_e2e.py"
+      ]
+    },
+    "conduit/apps/profiles/exceptions.py": {
+      "unit": [
+        "tests/generated/conduit/apps/profiles/test_exceptions_unit.py"
+      ],
+      "integration": [
+        "tests/generated/conduit/apps/profiles/test_exceptions_integration.py"
+      ]
+    },
+    "conduit/apps/core/models.py": {
+      "unit": [
+        "tests/generated/conduit/apps/core/test_models_unit.py"
+      ]
+    },
+    "conduit/apps/core/utils.py": {
+      "unit": [
+        "tests/generated/conduit/apps/core/test_utils_unit.py"
+      ],
+      "e2e": [
+        "tests/generated/conduit/apps/core/test_utils_e2e.py"
+      ]
+    },
+    "conduit/apps/core/renderers.py": {
+      "e2e": [
+        "tests/generated/conduit/apps/core/test_renderers_e2e.py"
+      ]
+    },
+    "conduit/apps/articles/renderers.py": {
+      "unit": [
+        "tests/generated/conduit/apps/articles/test_renderers_unit.py"
+      ]
+    },
+    "conduit/apps/articles/relations.py": {
+      "integration": [
+        "tests/generated/conduit/apps/articles/test_relations_integration.py"
+      ],
+      "e2e": [
+        "tests/generated/conduit/apps/articles/test_relations_e2e.py"
+      ]
+    }
+  }
+}
