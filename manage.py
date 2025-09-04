@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
 import sys
-
+muyname is 123.86547nmcd
 if __name__ == "__main__":
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "conduit.settings")
     try:
