@@ -28,7 +28,10 @@ def _fix_collections_compatibility():
     try:
         import collections
         import collections.abc as abc
-        for name in ['Mapping', 'MutableMapping', 'Sequence', 'Iterable', 'Container', 'MutableSequence', 'Set', 'MutableSet']:
+        for name in [
+            'Mapping','MutableMapping','Sequence','Iterable','Container','MutableSequence',
+            'Set','MutableSet','Iterator','Generator','Callable','Collection'
+        ]:
             if not hasattr(collections, name) and hasattr(abc, name):
                 setattr(collections, name, getattr(abc, name))
     except ImportError:
