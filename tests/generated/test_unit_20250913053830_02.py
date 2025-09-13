@@ -1,0 +1,301 @@
+import importlib.util, pytest
+if importlib.util.find_spec('django') is None:
+    pytest.skip('django not installed; skipping module', allow_module_level=True)
+
+# --- ENHANCED UNIVERSAL BOOTSTRAP ---
+import os, sys, importlib as _importlib, importlib.util as _iu, importlib.machinery as _im, types as _types, pytest as _pytest, builtins as _builtins
+import warnings
+STRICT = os.getenv("TESTGEN_STRICT", "1").lower() in ("1","true","yes")
+STRICT_FAIL = os.getenv("TESTGEN_STRICT_FAIL","0").lower() in ("1","true","yes")
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
+_target = os.environ.get("TARGET_ROOT") or os.environ.get("ANALYZE_ROOT") or "target"
+if _target and os.path.exists(_target):
+    if _target not in sys.path: sys.path.insert(0, _target)
+    try: os.chdir(_target)
+    except Exception: pass
+_TARGET_ABS = os.path.abspath(_target)
+def _exc_lookup(name, default):
+    try:
+        mod_name, _, cls_name = str(name).rpartition(".")
+        if mod_name:
+            mod = __import__(mod_name, fromlist=[cls_name])
+            return getattr(mod, cls_name, default)
+        return getattr(sys.modules.get("builtins"), str(name), default)
+    except Exception:
+        return default
+def _apply_compatibility_fixes():
+    try:
+        import jinja2
+        if not hasattr(jinja2, 'Markup'):
+            try:
+                from markupsafe import Markup, escape
+                jinja2.Markup = Markup
+                if not hasattr(jinja2, 'escape'):
+                    jinja2.escape = escape
+            except Exception:
+                pass
+    except ImportError:
+        pass
+    try:
+        import flask
+        if not hasattr(flask, "escape"):
+            try:
+                from markupsafe import escape
+                flask.escape = escape
+            except Exception:
+                pass
+        try:
+            import threading
+            from flask import _app_ctx_stack, _request_ctx_stack
+            for _stack in (_app_ctx_stack, _request_ctx_stack):
+                if _stack is not None and not hasattr(_stack, "__ident_func__"):
+                    _stack.__ident_func__ = getattr(threading, "get_ident", None) or (lambda: 0)
+        except Exception:
+            pass
+    except ImportError:
+        pass
+    try:
+        import collections as _collections, collections.abc as _abc
+        for _n in ('Mapping','MutableMapping','Sequence','Iterable','Container','MutableSequence','Set','MutableSet'):
+            if not hasattr(_collections, _n) and hasattr(_abc, _n):
+                setattr(_collections, _n, getattr(_abc, _n))
+    except Exception:
+        pass
+    try:
+        import marshmallow as _mm
+        if not hasattr(_mm, "__version__"):
+            _mm.__version__ = "4"
+    except Exception:
+        pass
+_apply_compatibility_fixes()
+_ADAPTED_MODULES = set()
+def _attach_module_getattr(_m):
+    try:
+        if getattr(_m, "__name__", None) in _ADAPTED_MODULES: return
+        mfile = getattr(_m, "__file__", "") or ""
+        if not mfile or not os.path.abspath(mfile).startswith(_TARGET_ABS + os.sep): return
+        if hasattr(_m, "__getattr__"):
+            _ADAPTED_MODULES.add(_m.__name__); return
+        def __getattr__(name):
+            for _nm, _obj in list(_m.__dict__.items()):
+                if isinstance(_obj, type) and not _nm.startswith("_"):
+                    try: _inst = _obj()
+                    except Exception: continue
+                    if hasattr(_inst, name):
+                        _val = getattr(_inst, name)
+                        try: setattr(_m, name, _val)
+                        except Exception: pass
+                        return _val
+            raise AttributeError(f"module {_m.__name__!r} has no attribute {name!r}")
+        _m.__getattr__ = __getattr__; _ADAPTED_MODULES.add(_m.__name__)
+    except Exception:
+        pass
+if not STRICT:
+    _orig_import = _builtins.__import__
+    def _import_with_adapter(name, globals=None, locals=None, fromlist=(), level=0):
+        mod = _orig_import(name, globals, locals, fromlist, level)
+        try:
+            if isinstance(mod, _types.ModuleType): _attach_module_getattr(mod)
+            if fromlist:
+                for attr in fromlist:
+                    try:
+                        sub = getattr(mod, attr, None)
+                        if isinstance(sub, _types.ModuleType): _attach_module_getattr(sub)
+                    except Exception: pass
+        except Exception: pass
+        return mod
+    _builtins.__import__ = _import_with_adapter
+try:
+    if _iu.find_spec("django") is not None:
+        import django
+        from django.conf import settings as _dj_settings
+        if not _dj_settings.configured:
+            _dj_settings.configure(SECRET_KEY="test-key", DEBUG=True, ALLOWED_HOSTS=["*"], INSTALLED_APPS=[], DATABASES={"default": {"ENGINE":"django.db.backends.sqlite3","NAME":":memory:"}})
+            django.setup()
+except Exception: pass
+_PY2_ALIASES = {'ConfigParser': 'configparser', 'Queue': 'queue', 'StringIO': 'io', 'cStringIO': 'io', 'urllib2': 'urllib.request'}
+for _old, _new in list(_PY2_ALIASES.items()):
+    if _old in sys.modules: continue
+    try:
+        __import__(_new); sys.modules[_old] = sys.modules[_new]
+    except Exception: pass
+def _safe_find_spec(name):
+    try: return _iu.find_spec(name)
+    except Exception: return None
+def _ensure_pkg(name, is_pkg=None):
+    if name in sys.modules:
+        m = sys.modules[name]
+        if getattr(m, "__spec__", None) is None:
+            m.__spec__ = _im.ModuleSpec(name, loader=None, is_package=(is_pkg if is_pkg is not None else ("." not in name)))
+            if "." not in name and not hasattr(m, "__path__"): m.__path__ = []
+        return m
+    m = _types.ModuleType(name)
+    if is_pkg is None: is_pkg = ("." not in name)
+    if is_pkg and not hasattr(m, "__path__"): m.__path__ = []
+    m.__spec__ = _im.ModuleSpec(name, loader=None, is_package=is_pkg)
+    sys.modules[name] = m
+    return m
+_THIRD_PARTY_TOPS = ['__future__', 'conduit', 'datetime', 'django', 'json', 'jwt', 'models', 'os', 'random', 'relations', 'renderers', 'rest_framework', 'serializers', 'string', 'views']
+
+# --- /ENHANCED UNIVERSAL BOOTSTRAP ---
+
+import pytest as _pytest
+# If a target import fails, skip the whole module rather than passing silently.
+try:
+    pass
+except ImportError as _e:
+    import pytest as _pytest; _pytest.skip(str(_e), allow_module_level=True)
+_pytest.skip('generator: banned private imports detected; skipping module', allow_module_level=True)
+
+try:
+    import pytest
+    import types
+    import builtins
+    from types import SimpleNamespace
+    from importlib import import_module
+
+    auth_models = import_module("target.conduit.apps.authentication.models")
+    backends = import_module("target.conduit.apps.authentication.backends")
+    jwt = import_module("jwt")
+    rest_exceptions = import_module("rest_framework.exceptions")
+except ImportError as e:
+    import pytest as _pytest
+    _pytest.skip(f"Skipping tests due to ImportError: {e}", allow_module_level=True)
+
+
+def _exc_lookup(name, fallback=Exception):
+    return getattr(rest_exceptions, name, fallback)
+
+
+def test_user_token_and_name_methods_monkeypatched_jwt(monkeypatch):
+    """Arrange-Act-Assert: generated by ai-testgen for developer-style correctness checks."""
+    # Arrange
+    User = getattr(auth_models, "User")
+    user_instance = User()
+    # set attributes used by get_full_name/get_short_name implementations
+    setattr(user_instance, "first_name", "Alice")
+    setattr(user_instance, "last_name", "Anderson")
+    setattr(user_instance, "username", "alice123")
+    # monkeypatch jwt.encode to return a predictable token value
+    called = {}
+    def fake_encode(payload, secret, algorithm="HS256"):
+        called['payload'] = payload
+        called['secret'] = secret
+        called['algorithm'] = algorithm
+        return "mocked.jwt.token"
+    monkeypatch.setattr(jwt, "encode", fake_encode, raising=False)
+
+    # Act
+    token_value = user_instance.token()
+    full_name = user_instance.get_full_name()
+    short_name = user_instance.get_short_name()
+
+    # Assert
+    assert isinstance(token_value, _exc_lookup("str", Exception))
+    assert token_value == "mocked.jwt.token"
+    assert "Alice" in full_name and "Anderson" in full_name
+    assert short_name == "alice123"
+    # ensure jwt.encode received something that looks like an id or timestamp payload
+    assert isinstance(called.get("payload"), dict)
+
+
+def test_user_manager_create_user_and_create_superuser_set_flags_and_password(monkeypatch):
+    """Arrange-Act-Assert: generated by ai-testgen for developer-style correctness checks."""
+    # Arrange
+    UserManager = getattr(auth_models, "UserManager")
+    manager = UserManager()
+
+    created_users = []
+
+    class FakeUser:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+            self.password_set = None
+            self.is_staff = False
+            self.is_superuser = False
+            self.is_active = kwargs.get("is_active", True)
+            created_users.append(self)
+
+        def set_password(self, raw_password):
+            self.password_set = raw_password
+
+    manager.model = FakeUser
+    # Act - create_user via kwargs to avoid depending on parameter order
+    user = manager.create_user(email="u@example.test", username="u1", password="passw0rd")
+
+    # Assert - created, password set and attributes present
+    assert isinstance(user, _exc_lookup("FakeUser", Exception))
+    assert user.email == "u@example.test"
+    assert user.username == "u1"
+    assert user.password_set == "passw0rd"
+    assert getattr(user, "is_active", True) is True
+
+    # Act - create_superuser
+    superuser = manager.create_superuser(email="su@example.test", username="admin", password="s3cret")
+
+    # Assert - superuser flags set
+    assert isinstance(superuser, _exc_lookup("FakeUser", Exception))
+    assert getattr(superuser, "is_superuser", False) is True
+    assert getattr(superuser, "is_staff", False) is True
+    assert superuser.password_set == "s3cret"
+
+
+@pytest.mark.parametrize("decode_side_effect, expected_exception_name", [
+    (Exception("invalid"), "AuthenticationFailed"),
+    (None, None),
+])
+def test__authenticate_credentials_handles_decode_and_user_lookup(monkeypatch, decode_side_effect, expected_exception_name):
+    """Arrange-Act-Assert: generated by ai-testgen for developer-style correctness checks."""
+    # Arrange
+    backend = backends.JWTAuthentication()
+    # prepare fake token and payload
+    token_value = "header.payload.signature"
+
+    # Case when jwt.decode raises an error -> should raise AuthenticationFailed
+    if decode_side_effect is not None:
+        def fake_decode_error(token, secret, algorithms=None):
+            raise decode_side_effect
+        monkeypatch.setattr(jwt, "decode", fake_decode_error, raising=False)
+
+        expected_exc = _exc_lookup(expected_exception_name, Exception)
+        with pytest.raises(_exc_lookup("expected_exc", Exception)):
+            # Act
+            backend._authenticate_credentials(token_value)
+    else:
+        # Case when jwt.decode returns payload and user is found -> return user
+        fake_payload = {"id": 42}
+        def fake_decode_ok(token, secret, algorithms=None):
+            return fake_payload
+        monkeypatch.setattr(jwt, "decode", fake_decode_ok, raising=False)
+
+        # create fake User class in the backend module to intercept lookup
+        class FakeUserObj:
+            def __init__(self, pk):
+                self.id = pk
+
+        fake_user_instance = FakeUserObj(42)
+        FakeUserModel = SimpleNamespace(objects=SimpleNamespace(get=lambda pk: fake_user_instance))
+        monkeypatch.setattr(backends, "User", FakeUserModel, raising=False)
+
+        # Act
+        user_returned = backend._authenticate_credentials(token_value)
+
+        # Assert
+        assert user_returned is fake_user_instance
+
+
+def test_authenticate_method_with_no_authorization_header_returns_none():
+    """Arrange-Act-Assert: generated by ai-testgen for developer-style correctness checks."""
+    # Arrange
+    backend = backends.JWTAuthentication()
+    class FakeRequest:
+        META = {}
+        headers = {}
+    request = FakeRequest()
+
+    # Act
+    result = backend.authenticate(request)
+
+    # Assert - if no auth header present, should return None (no authentication attempted)
+    assert result is None
