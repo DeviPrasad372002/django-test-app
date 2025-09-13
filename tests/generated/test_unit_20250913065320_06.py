@@ -2,6 +2,10 @@ import pytest as _pytest
 _pytest.skip('quarantined invalid generated test', allow_module_level=True)
 
 """
+import pytest as _pytest
+_pytest.skip('quarantined invalid generated test', allow_module_level=True)
+
+"""
 import importlib.util, pytest
 if importlib.util.find_spec('django') is None:
     pytest.skip('django not installed; skipping module', allow_module_level=True)
@@ -270,5 +274,7 @@ def test_add_slug_to_article_if_not_exists_sets_or_preserves_slug(initial_slug, 
         assert instance.slug.startswith(slugify(title_value))
     else:
         assert instance.slug == initial_slug
+
+"""
 
 """

@@ -2,6 +2,10 @@ import pytest as _pytest
 _pytest.skip('quarantined invalid generated test', allow_module_level=True)
 
 """
+import pytest as _pytest
+_pytest.skip('quarantined invalid generated test', allow_module_level=True)
+
+"""
 import importlib.util, pytest
 if importlib.util.find_spec('django') is None:
     pytest.skip('django not installed; skipping module', allow_module_level=True)
@@ -294,5 +298,7 @@ def test_renderers_return_valid_json_for_edge_values():
         assert isinstance(com_parsed, _exc_lookup("dict", Exception))
         assert "article" in art_parsed or "articles" in art_parsed
         assert "comment" in com_parsed or "comments" in com_parsed
+
+"""
 
 """

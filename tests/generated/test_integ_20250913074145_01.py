@@ -2,6 +2,10 @@ import pytest as _pytest
 _pytest.skip('quarantined invalid generated test', allow_module_level=True)
 
 """
+import pytest as _pytest
+_pytest.skip('quarantined invalid generated test', allow_module_level=True)
+
+"""
 import importlib.util, pytest
 if importlib.util.find_spec('django') is None:
     pytest.skip('django not installed; skipping module', allow_module_level=True)
@@ -255,5 +259,7 @@ def test_comment_str_contains_body_prefix():
     # Assert: result is string and contains a prefix of the body (guards against truncation implementations)
     assert isinstance(result, _exc_lookup("str", Exception))
     assert prefix[:5] in result
+
+"""
 
 """

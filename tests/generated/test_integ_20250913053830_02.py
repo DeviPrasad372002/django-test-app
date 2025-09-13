@@ -2,6 +2,10 @@ import pytest as _pytest
 _pytest.skip('quarantined invalid generated test', allow_module_level=True)
 
 """
+import pytest as _pytest
+_pytest.skip('quarantined invalid generated test', allow_module_level=True)
+
+"""
 import importlib.util, pytest
 if importlib.util.find_spec('django') is None:
     pytest.skip('django not installed; skipping module', allow_module_level=True)
@@ -306,5 +310,7 @@ def test_add_slug_to_article_if_not_exists_handles_collisions_and_assigns_slug(m
     assert instance.slug is not None
     assert instance.slug.startswith("my-first-article")
     assert instance.slug.endswith(expected_final_slug_suffix) or expected_final_slug_suffix == "" and instance.slug == "my-first-article"
+
+"""
 
 """

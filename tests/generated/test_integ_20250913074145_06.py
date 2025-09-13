@@ -2,6 +2,10 @@ import pytest as _pytest
 _pytest.skip('quarantined invalid generated test', allow_module_level=True)
 
 """
+import pytest as _pytest
+_pytest.skip('quarantined invalid generated test', allow_module_level=True)
+
+"""
 import importlib.util, pytest
 if importlib.util.find_spec('django') is None:
     pytest.skip('django not installed; skipping module', allow_module_level=True)
@@ -258,5 +262,7 @@ def test_user_token_property_returns_string_and_is_stable(monkeypatch):
     assert isinstance(tok2, _exc_lookup("str", Exception))
     # Token property should be a string and multiple accesses should be consistent type
     assert tok1 == tok2 or isinstance(tok1, _exc_lookup("str", Exception))  # ensure deterministic type; value stability is not strictly required but often expected
+
+"""
 
 """

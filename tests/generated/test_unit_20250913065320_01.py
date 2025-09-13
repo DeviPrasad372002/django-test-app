@@ -2,6 +2,10 @@ import pytest as _pytest
 _pytest.skip('quarantined invalid generated test', allow_module_level=True)
 
 """
+import pytest as _pytest
+_pytest.skip('quarantined invalid generated test', allow_module_level=True)
+
+"""
 import importlib.util, pytest
 if importlib.util.find_spec('django') is None:
     pytest.skip('django not installed; skipping module', allow_module_level=True)
@@ -249,5 +253,7 @@ def test_article_serializer_get_favorited_returns_boolean_for_missing_context_or
 
     # Assert
     assert isinstance(result, _exc_lookup("bool", Exception))
+
+"""
 
 """

@@ -2,6 +2,10 @@ import pytest as _pytest
 _pytest.skip('quarantined invalid generated test', allow_module_level=True)
 
 """
+import pytest as _pytest
+_pytest.skip('quarantined invalid generated test', allow_module_level=True)
+
+"""
 import importlib.util, pytest
 if importlib.util.find_spec('django') is None:
     pytest.skip('django not installed; skipping module', allow_module_level=True)
@@ -227,5 +231,7 @@ def test_generate_random_string_length_and_charset(length):
     assert isinstance(rand, _exc_lookup("str", Exception)), "generate_random_string should return a string"
     assert len(rand) == requested_length, "Returned string must match requested length"
     assert re.fullmatch(r'[A-Za-z0-9]+', rand), "Returned string must be alphanumeric only"
+
+"""
 
 """

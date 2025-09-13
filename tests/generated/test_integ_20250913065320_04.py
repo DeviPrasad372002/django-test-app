@@ -2,6 +2,10 @@ import pytest as _pytest
 _pytest.skip('quarantined invalid generated test', allow_module_level=True)
 
 """
+import pytest as _pytest
+_pytest.skip('quarantined invalid generated test', allow_module_level=True)
+
+"""
 import importlib.util, pytest
 if importlib.util.find_spec('django') is None:
     pytest.skip('django not installed; skipping module', allow_module_level=True)
@@ -283,5 +287,7 @@ def test_tagrelatedfield_to_internal_and_representation_integration(monkeypatch,
     assert internal_obj.name == expected_name
     # representation should be the string name
     assert representation == expected_name
+
+"""
 
 """

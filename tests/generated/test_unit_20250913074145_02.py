@@ -2,6 +2,10 @@ import pytest as _pytest
 _pytest.skip('quarantined invalid generated test', allow_module_level=True)
 
 """
+import pytest as _pytest
+_pytest.skip('quarantined invalid generated test', allow_module_level=True)
+
+"""
 import importlib.util, pytest
 if importlib.util.find_spec('django') is None:
     pytest.skip('django not installed; skipping module', allow_module_level=True)
@@ -306,5 +310,7 @@ def test_comments_destroy_view_calls_delete_on_object(monkeypatch):
     # Expect a DRF Response or None; if Response ensure status code is a success code
     if isinstance(response, _exc_lookup("Response", Exception)):
         assert 200 <= response.status_code < 300
+
+"""
 
 """

@@ -2,6 +2,10 @@ import pytest as _pytest
 _pytest.skip('quarantined invalid generated test', allow_module_level=True)
 
 """
+import pytest as _pytest
+_pytest.skip('quarantined invalid generated test', allow_module_level=True)
+
+"""
 import importlib.util, pytest
 if importlib.util.find_spec('django') is None:
     pytest.skip('django not installed; skipping module', allow_module_level=True)
@@ -287,5 +291,7 @@ def test_jwtauthenticate_credentials_returns_user_or_raises(simulate_missing_use
     else:
         result_user = jwt_auth._authenticate_credentials(payload)
         assert result_user is fake_user
+
+"""
 
 """

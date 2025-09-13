@@ -2,6 +2,10 @@ import pytest as _pytest
 _pytest.skip('quarantined invalid generated test', allow_module_level=True)
 
 """
+import pytest as _pytest
+_pytest.skip('quarantined invalid generated test', allow_module_level=True)
+
+"""
 import importlib.util, pytest
 if importlib.util.find_spec('django') is None:
     pytest.skip('django not installed; skipping module', allow_module_level=True)
@@ -315,5 +319,7 @@ def test_jwt_authentication__authenticate_credentials_raises_on_invalid_token(mo
     expected_exc = _exc_lookup(expected_exception_name, Exception)
     with pytest.raises(_exc_lookup("expected_exc", Exception)):
         backend._authenticate_credentials(token_value)
+
+"""
 
 """
