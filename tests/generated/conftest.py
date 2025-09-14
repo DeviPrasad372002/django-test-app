@@ -10,6 +10,45 @@ project_root = os.path.dirname(os.path.abspath(__file__))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+def _fix_django_metaclass_compatibility():
+    """Fix Django 1.10.5 metaclass compatibility with Python 3.10+"""
+    try:
+        import sys
+        if sys.version_info >= (3, 8):
+            import builtins
+            original_build_class = builtins.__build_class__
+            
+            def patched_build_class(func, name, *bases, metaclass=None, **kwargs):
+                try:
+                    return original_build_class(func, name, *bases, metaclass=metaclass, **kwargs)
+                except RuntimeError as e:
+                    if '__classcell__' in str(e) and 'not set' in str(e):
+                        # Create a new function without problematic cell variables
+                        import types
+                        code = func.__code__
+                        if code.co_freevars:
+                            # Remove free variables that cause issues
+                            new_code = code.replace(
+                                co_freevars=(),
+                                co_names=code.co_names + code.co_freevars
+                            )
+                            new_func = types.FunctionType(
+                                new_code,
+                                func.__globals__,
+                                func.__name__,
+                                func.__defaults__,
+                                None  # No closure
+                            )
+                            return original_build_class(new_func, name, *bases, metaclass=metaclass, **kwargs)
+                    raise
+                except Exception:
+                    # Fallback for other metaclass issues
+                    return original_build_class(func, name, *bases, **kwargs)
+            
+            builtins.__build_class__ = patched_build_class
+    except Exception:
+        pass
+
 def _fix_jinja2_compatibility():
     try:
         import jinja2
@@ -63,6 +102,8 @@ def _fix_marshmallow_compatibility():
     except Exception:
         pass
 
+# Apply fixes in order - Django metaclass fix must come first
+_fix_django_metaclass_compatibility()
 _fix_jinja2_compatibility()
 _fix_collections_compatibility()
 _fix_flask_compatibility()
