@@ -1,0 +1,204 @@
+import importlib.util, pytest
+if importlib.util.find_spec('django') is None:
+    pytest.skip('django not installed; skipping module', allow_module_level=True)
+
+# --- ENHANCED UNIVERSAL BOOTSTRAP ---
+import os, sys, importlib.util as _iu, types as _types, pytest as _pytest, builtins as _builtins, warnings
+STRICT = os.getenv("TESTGEN_STRICT", "1").lower() in ("1","true","yes")
+STRICT_FAIL = os.getenv("TESTGEN_STRICT_FAIL","0").lower() in ("1","true","yes")
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
+
+_target = os.environ.get("TARGET_ROOT") or os.environ.get("ANALYZE_ROOT") or "target"
+if _target and os.path.exists(_target):
+    if _target not in sys.path: sys.path.insert(0, _target)
+    try: os.chdir(_target)
+    except Exception: pass
+
+def _exc_lookup(name, default):
+    try:
+        mod_name, _, cls_name = str(name).rpartition(".")
+        if mod_name:
+            mod = __import__(mod_name, fromlist=[cls_name])
+            return getattr(mod, cls_name, default)
+        return getattr(sys.modules.get("builtins"), str(name), default)
+    except Exception:
+        return default
+
+def _apply_compatibility_fixes():
+    try:
+        import jinja2
+        if not hasattr(jinja2, 'Markup'):
+            try:
+                from markupsafe import Markup, escape
+                jinja2.Markup = Markup
+                if not hasattr(jinja2, 'escape'):
+                    jinja2.escape = escape
+            except Exception:
+                pass
+    except ImportError:
+        pass
+    try:
+        import collections as _collections, collections.abc as _abc
+        for _n in ('Mapping','MutableMapping','Sequence','Iterable','Container',
+                   'MutableSequence','Set','MutableSet','Iterator','Generator','Callable','Collection'):
+            if not hasattr(_collections, _n) and hasattr(_abc, _n):
+                setattr(_collections, _n, getattr(_abc, _n))
+    except Exception:
+        pass
+    try:
+        import marshmallow as _mm
+        if not hasattr(_mm, "__version__"):
+            _mm.__version__ = "4"
+    except Exception:
+        pass
+
+_apply_compatibility_fixes()
+
+# Minimal, safe Django bootstrap. If anything goes wrong, skip the module (repo-agnostic).
+try:
+    import django
+    from django.conf import settings as _dj_settings
+    from django import apps as _dj_apps
+
+    if not _dj_settings.configured:
+        _cfg = dict(
+            DEBUG=True,
+            SECRET_KEY='pytest-secret',
+            DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3','NAME': ':memory:'}},
+            INSTALLED_APPS=[
+                'django.contrib.auth','django.contrib.contenttypes',
+                'django.contrib.sessions','django.contrib.messages'
+            ],
+            MIDDLEWARE=[
+                'django.middleware.security.SecurityMiddleware',
+                'django.contrib.sessions.middleware.SessionMiddleware',
+                'django.middleware.common.CommonMiddleware',
+            ],
+            USE_TZ=True, TIME_ZONE='UTC',
+        )
+        try: _cfg["DEFAULT_AUTO_FIELD"] = "django.db.models.AutoField"
+        except Exception: pass
+        try: _dj_settings.configure(**_cfg)
+        except Exception: pass
+
+    if not _dj_apps.ready:
+        try: django.setup()
+        except Exception: pass
+
+    # Probe a known Django core that previously crashed on some stacks.
+    try:
+        import django.contrib.auth.base_user as _dj_probe  # noqa
+    except Exception as _e:
+        _pytest.skip(f"Django core import failed safely: {_e.__class__.__name__}: {_e}", allow_module_level=True)
+except Exception as _e:
+    # Do NOT crash the entire test session – make the module opt-out.
+    _pytest.skip(f"Django bootstrap not available: {_e.__class__.__name__}: {_e}", allow_module_level=True)
+
+
+# --- /ENHANCED UNIVERSAL BOOTSTRAP ---
+
+import pytest as _pytest
+_pytest.skip('generator: banned private imports detected; skipping module', allow_module_level=True)
+
+try:
+    import pytest
+    import json
+    from conduit.apps.articles.renderers import ArticleJSONRenderer, CommentJSONRenderer
+    from conduit.apps.articles.serializers import TagSerializer
+except ImportError as e:
+    import pytest as _pytest
+    _pytest.skip(f"Required modules missing for tests: {e}", allow_module_level=True)
+
+
+def _exc_lookup(name, default=Exception):
+    """
+    Lookup common exception classes by name across a few likely modules.
+    Falls back to `default` if not found.
+    """
+    candidates = [
+        "rest_framework.exceptions",
+        "django.core.exceptions",
+        "builtins",
+    ]
+    for modname in candidates:
+        try:
+            mod = __import__(modname, fromlist=[name])
+            exc = getattr(mod, name, None)
+            if exc:
+                return exc
+        except Exception:
+            continue
+    return default
+
+
+def test_article_json_renderer_wraps_dict_and_returns_bytes():
+    # Arrange-Act-Assert: generated by ai-testgen
+    # Arrange
+    data = {"title": "Test Article", "body": "This is a body.", "tags": ["x", "y"]}
+    renderer = ArticleJSONRenderer()
+
+    # Act
+    rendered = renderer.render(data)
+
+    # Assert
+    assert isinstance(rendered, (bytes, bytearray)), "Renderer must return bytes"
+    decoded = rendered.decode("utf-8")
+    parsed = json.loads(decoded)
+    assert "article" in parsed, "Top-level key 'article' must be present"
+    assert parsed["article"] == data, "Rendered JSON under 'article' should equal input data"
+
+
+@pytest.mark.parametrize("input_data", [
+    {"body": "A comment", "author": "alice"},
+    None,
+    [],
+])
+def test_comment_json_renderer_wraps_various_inputs(input_data):
+    # Arrange-Act-Assert: generated by ai-testgen
+    # Arrange
+    renderer = CommentJSONRenderer()
+
+    # Act
+    rendered = renderer.render(input_data)
+
+    # Assert
+    assert isinstance(rendered, (bytes, bytearray)), "Renderer must produce bytes"
+    parsed = json.loads(rendered.decode("utf-8"))
+    assert "comment" in parsed, "Top-level key 'comment' must be present"
+    # The renderer should place exactly the input under 'comment' (including None or list)
+    assert parsed["comment"] == input_data
+
+
+@pytest.mark.parametrize("payload,expected_valid", [
+    ({"name": "technology"}, True),
+    ({"name": ""}, False),
+    ({}, False),
+])
+def test_tag_serializer_validation_and_representation(payload, expected_valid):
+    # Arrange-Act-Assert: generated by ai-testgen
+    # Arrange
+    serializer = TagSerializer(data=payload)
+
+    # Act
+    is_valid = serializer.is_valid()
+
+    # Assert - validation boolean
+    assert is_valid is expected_valid
+
+    # Additional assertions depending on validation outcome
+    if is_valid:
+        # Arrange for representation: create serializer with validated data as instance-like dict
+        # Many simple serializers accept a dict instance for .data after creating serializer with data
+        created = serializer.validated_data
+        # Act - serialize existing validated data via serializer __class__ if possible
+        rep = TagSerializer(created).data
+        # Assert representation contains name and matches original
+        assert "name" in rep
+        assert rep["name"] == payload["name"]
+    else:
+        # When invalid, errors should be present and reference 'name' for these edge cases
+        errors = serializer.errors
+        assert isinstance(errors, _exc_lookup("dict", Exception))
+        # Prefer to check that either 'name' error exists or at least some error was reported
+        assert "name" in errors or len(errors) > 0

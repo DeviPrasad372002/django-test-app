@@ -1,8 +1,4 @@
-import pytest
-import sys
-import os
-import warnings
-
+import pytest, sys, os, warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
 

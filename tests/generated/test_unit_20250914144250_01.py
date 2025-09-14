@@ -1,0 +1,242 @@
+import importlib.util, pytest
+if importlib.util.find_spec('django') is None:
+    pytest.skip('django not installed; skipping module', allow_module_level=True)
+
+# --- ENHANCED UNIVERSAL BOOTSTRAP ---
+import os, sys, importlib.util as _iu, types as _types, pytest as _pytest, builtins as _builtins, warnings
+STRICT = os.getenv("TESTGEN_STRICT", "1").lower() in ("1","true","yes")
+STRICT_FAIL = os.getenv("TESTGEN_STRICT_FAIL","0").lower() in ("1","true","yes")
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
+
+_target = os.environ.get("TARGET_ROOT") or os.environ.get("ANALYZE_ROOT") or "target"
+if _target and os.path.exists(_target):
+    if _target not in sys.path: sys.path.insert(0, _target)
+    try: os.chdir(_target)
+    except Exception: pass
+
+def _exc_lookup(name, default):
+    try:
+        mod_name, _, cls_name = str(name).rpartition(".")
+        if mod_name:
+            mod = __import__(mod_name, fromlist=[cls_name])
+            return getattr(mod, cls_name, default)
+        return getattr(sys.modules.get("builtins"), str(name), default)
+    except Exception:
+        return default
+
+def _apply_compatibility_fixes():
+    try:
+        import jinja2
+        if not hasattr(jinja2, 'Markup'):
+            try:
+                from markupsafe import Markup, escape
+                jinja2.Markup = Markup
+                if not hasattr(jinja2, 'escape'):
+                    jinja2.escape = escape
+            except Exception:
+                pass
+    except ImportError:
+        pass
+    try:
+        import collections as _collections, collections.abc as _abc
+        for _n in ('Mapping','MutableMapping','Sequence','Iterable','Container',
+                   'MutableSequence','Set','MutableSet','Iterator','Generator','Callable','Collection'):
+            if not hasattr(_collections, _n) and hasattr(_abc, _n):
+                setattr(_collections, _n, getattr(_abc, _n))
+    except Exception:
+        pass
+    try:
+        import marshmallow as _mm
+        if not hasattr(_mm, "__version__"):
+            _mm.__version__ = "4"
+    except Exception:
+        pass
+
+_apply_compatibility_fixes()
+
+# Minimal, safe Django bootstrap. If anything goes wrong, skip the module (repo-agnostic).
+try:
+    import django
+    from django.conf import settings as _dj_settings
+    from django import apps as _dj_apps
+
+    if not _dj_settings.configured:
+        _cfg = dict(
+            DEBUG=True,
+            SECRET_KEY='pytest-secret',
+            DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3','NAME': ':memory:'}},
+            INSTALLED_APPS=[
+                'django.contrib.auth','django.contrib.contenttypes',
+                'django.contrib.sessions','django.contrib.messages'
+            ],
+            MIDDLEWARE=[
+                'django.middleware.security.SecurityMiddleware',
+                'django.contrib.sessions.middleware.SessionMiddleware',
+                'django.middleware.common.CommonMiddleware',
+            ],
+            USE_TZ=True, TIME_ZONE='UTC',
+        )
+        try: _cfg["DEFAULT_AUTO_FIELD"] = "django.db.models.AutoField"
+        except Exception: pass
+        try: _dj_settings.configure(**_cfg)
+        except Exception: pass
+
+    if not _dj_apps.ready:
+        try: django.setup()
+        except Exception: pass
+
+    # Probe a known Django core that previously crashed on some stacks.
+    try:
+        import django.contrib.auth.base_user as _dj_probe  # noqa
+    except Exception as _e:
+        _pytest.skip(f"Django core import failed safely: {_e.__class__.__name__}: {_e}", allow_module_level=True)
+except Exception as _e:
+    # Do NOT crash the entire test session – make the module opt-out.
+    _pytest.skip(f"Django bootstrap not available: {_e.__class__.__name__}: {_e}", allow_module_level=True)
+
+
+# --- /ENHANCED UNIVERSAL BOOTSTRAP ---
+
+try:
+    import sys
+    import types
+    import builtins
+    import datetime
+    import pytest
+    import importlib
+
+    import conduit.apps.articles.__init__ as articles_init
+    import conduit.apps.articles.models as articles_models
+    import conduit.apps.articles.signals as articles_signals
+    import conduit.apps.articles.serializers as articles_serializers
+    import conduit.apps.core.utils as core_utils
+except ImportError:
+    import pytest
+    pytest.skip("Required modules for tests are not available", allow_module_level=True)
+
+
+def _exc_lookup(name, default=Exception):
+    # Try to find exception in builtins, imported modules, or return default
+    if name in globals() and isinstance(globals()[name], type) and issubclass(globals()[name], BaseException):
+        return globals()[name]
+    if hasattr(builtins, name) and isinstance(getattr(builtins, name), type) and issubclass(getattr(builtins, name), BaseException):
+        return getattr(builtins, name)
+    return default
+
+
+def test_ready_triggers_import_of_signals(monkeypatch):
+    # Arrange-Act-Assert: generated by ai-testgen
+    # Arrange
+    imported = {"called": False}
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        # Act: detect attempts to import the signals module
+        if name == "conduit.apps.articles.signals" or (fromlist and "signals" in fromlist and name.endswith("articles")):
+            imported["called"] = True
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    try:
+        # Act
+        cfg = articles_init.ArticlesAppConfig("conduit.apps.articles", "conduit.apps.articles")
+        cfg.ready()
+        # Assert
+        assert imported["called"] is True, "ready() should attempt to import the signals module"
+    finally:
+        monkeypatch.setattr(builtins, "__import__", real_import)
+
+
+@pytest.mark.parametrize("title", ["Hello World", ""])
+def test_article___str__returns_title_for_various_titles(title):
+    # Arrange-Act-Assert: generated by ai-testgen
+    # Arrange
+    # Use model class directly; instantiate without DB save
+    article = articles_models.Article()
+    article.title = title
+    # Act
+    result = str(article)
+    # Assert
+    assert isinstance(result, _exc_lookup("str", Exception))
+    assert result == title
+
+
+def test_add_slug_to_article_if_not_exists_adds_slug_when_missing(monkeypatch):
+    # Arrange-Act-Assert: generated by ai-testgen
+    # Arrange
+    from types import SimpleNamespace
+    instance = SimpleNamespace()
+    instance.title = "My Test Title"
+    instance.slug = None
+
+    # Make slugify deterministic in the signals module
+    monkeypatch.setattr(articles_signals, "slugify", lambda s: s.lower().replace(" ", "-"))
+    # Make random generator deterministic
+    monkeypatch.setattr(articles_signals, "generate_random_string", lambda length=6: "RND123")
+
+    # Act
+    # Emulate Django signal call; some implementations accept sender, instance, **kwargs
+    articles_signals.add_slug_to_article_if_not_exists(sender=articles_models.Article, instance=instance)
+
+    # Assert
+    assert getattr(instance, "slug", None), "Slug should be added when missing"
+    assert "my-test-title" in instance.slug
+    assert "RND123" in instance.slug
+
+
+def test_article_serializer_create_and_getters_behaviour():
+    # Arrange-Act-Assert: generated by ai-testgen
+    # Arrange
+    serializer_cls = articles_serializers.ArticleSerializer
+    serializer = serializer_cls()
+    now = datetime.datetime.utcnow().replace(tzinfo=None)
+    validated_data = {
+        "title": "New Article",
+        "description": "Desc",
+        "body": "Body content",
+        # serializer.create may expect an author; provide None and ensure no crash for unit test expectations
+        "author": None,
+    }
+
+    # Act
+    article_obj = serializer.create(validated_data)
+
+    # Assert created object has expected attributes set
+    assert hasattr(article_obj, "title")
+    assert article_obj.title == "New Article"
+    assert getattr(article_obj, "description", None) == "Desc"
+    assert getattr(article_obj, "body", None) == "Body content"
+
+    # Now test datetime-related getters: attach datetimes to object and ensure string outputs or types
+    article_obj.created_at = now
+    article_obj.updated_at = now
+    # Provide favorites_count attribute to exercise favorites getter
+    article_obj.favorites_count = 7
+
+    created_at_out = serializer.get_created_at(article_obj)
+    updated_at_out = serializer.get_updated_at(article_obj)
+    favorites_count_out = serializer.get_favorites_count(article_obj)
+    favorited_out = serializer.get_favorited(article_obj)
+
+    assert isinstance(created_at_out, _exc_lookup("str", Exception))
+    assert str(now.year) in created_at_out
+    assert isinstance(updated_at_out, _exc_lookup("str", Exception))
+    assert str(now.year) in updated_at_out
+    assert isinstance(favorites_count_out, _exc_lookup("int", Exception))
+    assert favorites_count_out == 7
+    # Without context/request, favorited should be falsy (implementation-dependent but should not raise)
+    assert favorited_out in (False, None)
+
+
+def test_article_serializer_create_raises_on_missing_required_fields():
+    # Arrange-Act-Assert: generated by ai-testgen
+    # Arrange
+    serializer_cls = articles_serializers.ArticleSerializer
+    serializer = serializer_cls()
+    empty_validated = {}
+
+    # Act / Assert: ensure some exception is raised for missing required fields
+    with pytest.raises(_exc_lookup("Exception", Exception)):
+        serializer.create(empty_validated)

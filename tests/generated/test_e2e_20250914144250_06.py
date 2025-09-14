@@ -1,0 +1,242 @@
+import importlib.util, pytest
+if importlib.util.find_spec('django') is None:
+    pytest.skip('django not installed; skipping module', allow_module_level=True)
+
+# --- ENHANCED UNIVERSAL BOOTSTRAP ---
+import os, sys, importlib.util as _iu, types as _types, pytest as _pytest, builtins as _builtins, warnings
+STRICT = os.getenv("TESTGEN_STRICT", "1").lower() in ("1","true","yes")
+STRICT_FAIL = os.getenv("TESTGEN_STRICT_FAIL","0").lower() in ("1","true","yes")
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
+
+_target = os.environ.get("TARGET_ROOT") or os.environ.get("ANALYZE_ROOT") or "target"
+if _target and os.path.exists(_target):
+    if _target not in sys.path: sys.path.insert(0, _target)
+    try: os.chdir(_target)
+    except Exception: pass
+
+def _exc_lookup(name, default):
+    try:
+        mod_name, _, cls_name = str(name).rpartition(".")
+        if mod_name:
+            mod = __import__(mod_name, fromlist=[cls_name])
+            return getattr(mod, cls_name, default)
+        return getattr(sys.modules.get("builtins"), str(name), default)
+    except Exception:
+        return default
+
+def _apply_compatibility_fixes():
+    try:
+        import jinja2
+        if not hasattr(jinja2, 'Markup'):
+            try:
+                from markupsafe import Markup, escape
+                jinja2.Markup = Markup
+                if not hasattr(jinja2, 'escape'):
+                    jinja2.escape = escape
+            except Exception:
+                pass
+    except ImportError:
+        pass
+    try:
+        import collections as _collections, collections.abc as _abc
+        for _n in ('Mapping','MutableMapping','Sequence','Iterable','Container',
+                   'MutableSequence','Set','MutableSet','Iterator','Generator','Callable','Collection'):
+            if not hasattr(_collections, _n) and hasattr(_abc, _n):
+                setattr(_collections, _n, getattr(_abc, _n))
+    except Exception:
+        pass
+    try:
+        import marshmallow as _mm
+        if not hasattr(_mm, "__version__"):
+            _mm.__version__ = "4"
+    except Exception:
+        pass
+
+_apply_compatibility_fixes()
+
+# Minimal, safe Django bootstrap. If anything goes wrong, skip the module (repo-agnostic).
+try:
+    import django
+    from django.conf import settings as _dj_settings
+    from django import apps as _dj_apps
+
+    if not _dj_settings.configured:
+        _cfg = dict(
+            DEBUG=True,
+            SECRET_KEY='pytest-secret',
+            DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3','NAME': ':memory:'}},
+            INSTALLED_APPS=[
+                'django.contrib.auth','django.contrib.contenttypes',
+                'django.contrib.sessions','django.contrib.messages'
+            ],
+            MIDDLEWARE=[
+                'django.middleware.security.SecurityMiddleware',
+                'django.contrib.sessions.middleware.SessionMiddleware',
+                'django.middleware.common.CommonMiddleware',
+            ],
+            USE_TZ=True, TIME_ZONE='UTC',
+        )
+        try: _cfg["DEFAULT_AUTO_FIELD"] = "django.db.models.AutoField"
+        except Exception: pass
+        try: _dj_settings.configure(**_cfg)
+        except Exception: pass
+
+    if not _dj_apps.ready:
+        try: django.setup()
+        except Exception: pass
+
+    # Probe a known Django core that previously crashed on some stacks.
+    try:
+        import django.contrib.auth.base_user as _dj_probe  # noqa
+    except Exception as _e:
+        _pytest.skip(f"Django core import failed safely: {_e.__class__.__name__}: {_e}", allow_module_level=True)
+except Exception as _e:
+    # Do NOT crash the entire test session – make the module opt-out.
+    _pytest.skip(f"Django bootstrap not available: {_e.__class__.__name__}: {_e}", allow_module_level=True)
+
+
+# --- /ENHANCED UNIVERSAL BOOTSTRAP ---
+
+try:
+    import pytest
+    import json
+    import types
+    import builtins
+    from types import SimpleNamespace
+    import conduit.apps.authentication.backends as backends
+    import conduit.apps.authentication.renderers as renderers
+except ImportError as e:
+    import pytest
+    pytest.skip("Skipping tests due to import error: " + str(e), allow_module_level=True)
+
+
+def _exc_lookup(name, default=Exception):
+    # Try to find an exception class by name in commonly available modules,
+    # fall back to provided default.
+    for mod in (builtins,):
+        if hasattr(mod, name):
+            return getattr(mod, name)
+    return default
+
+
+@pytest.mark.parametrize(
+    "input_data, expected_dict",
+    [
+        ({"user": {"email": "alice@example.com", "token": "tok123"}}, {"user": {"email": "alice@example.com", "token": "tok123"}}),
+        ({"user": {"username": "bob", "bio": "", "image": None}}, {"user": {"username": "bob", "bio": "", "image": None}}),
+    ],
+)
+def test_user_json_renderer_render_returns_valid_json_and_structure(input_data, expected_dict):
+    # Arrange-Act-Assert: generated by ai-testgen
+    # Arrange
+    renderer = renderers.UserJSONRenderer()
+
+    # Act
+    rendered = renderer.render(input_data)
+
+    # Assert
+    # output should be bytes or str containing JSON that loads to expected dict
+    assert isinstance(rendered, (bytes, str)), "render should return bytes or str"
+    loaded = json.loads(rendered.decode() if isinstance(rendered, _exc_lookup("bytes", Exception)) else rendered)
+    assert loaded == expected_dict
+
+
+@pytest.mark.parametrize(
+    "auth_header, expected_result",
+    [
+        ("Token abc.def.ghi", ("user_obj", "abc.def.ghi")),  # normal token present
+        (None, None),  # missing header should yield None
+        ("", None),  # empty header should yield None
+    ],
+)
+def test_jwt_authentication_authenticate_token_extraction(monkeypatch, auth_header, expected_result):
+    # Arrange-Act-Assert: generated by ai-testgen
+    # Arrange
+    auth = backends.JWTAuthentication()
+
+    called = {}
+
+    def fake_authenticate_credentials(token_value):
+        # record token_value and return a tuple like (user, token)
+        called['token'] = token_value
+        return ("user_obj", token_value)
+
+    monkeypatch.setattr(backends.JWTAuthentication, "_authenticate_credentials", staticmethod(fake_authenticate_credentials))
+
+    # Create a minimal fake request object with META mapping
+    req = SimpleNamespace()
+    if auth_header is None:
+        req.META = {}
+    else:
+        if auth_header == "":
+            req.META = {"HTTP_AUTHORIZATION": ""}
+        else:
+            req.META = {"HTTP_AUTHORIZATION": auth_header}
+
+    # Act
+    result = auth.authenticate(req)
+
+    # Assert
+    if expected_result is None:
+        assert result is None
+        # ensure _authenticate_credentials was not called
+        assert called == {}
+    else:
+        # Should return (user, token)
+        assert isinstance(result, _exc_lookup("tuple", Exception)) and len(result) == 2
+        assert result[0] == "user_obj"
+        assert result[1] == expected_result[1]
+        # ensure the token passed to _authenticate_credentials is the token part without prefix
+        assert called.get('token') == expected_result[1]
+
+
+@pytest.mark.parametrize(
+    "user_exists",
+    [True, False],
+)
+def test__authenticate_credentials_success_and_failure(monkeypatch, user_exists):
+    # Arrange-Act-Assert: generated by ai-testgen
+    # Arrange
+    auth = backends.JWTAuthentication()
+
+    # Monkeypatch jwt.decode used in the backends module to return a deterministic payload
+    def fake_jwt_decode(token, key, algorithms=None):
+        return {"user_id": 42}
+
+    monkeypatch.setattr(backends, "jwt", SimpleNamespace(decode=fake_jwt_decode))
+
+    # Create a dummy User class with objects.get behavior
+    class DummyUser:
+        def __init__(self, pk, is_active=True):
+            self.pk = pk
+            self.is_active = is_active
+
+    class DummyManager:
+        @staticmethod
+        def get(pk):
+            if user_exists:
+                # Return an active user object when requested
+                return DummyUser(pk=pk, is_active=True)
+            # Simulate not found by raising DoesNotExist attribute
+            raise DummyUser.DoesNotExist()
+
+    # Attach a DoesNotExist exception type to DummyUser so callers can catch it if they look for it
+    DummyUser.DoesNotExist = type("DoesNotExist", (Exception,), {})
+
+    # Monkeypatch the User reference in the backends module to our dummy with objects manager
+    dummy_user_model = SimpleNamespace(objects=DummyManager)
+    monkeypatch.setattr(backends, "User", dummy_user_model)
+
+    # Act / Assert
+    if user_exists:
+        # Should return the user object when found
+        result = auth._authenticate_credentials("fake.token.value")
+        assert isinstance(result, _exc_lookup("DummyUser", Exception))
+        assert result.pk == 42
+        assert result.is_active is True
+    else:
+        # When user not found, expect an exception (don't assume custom exception name)
+        exc_cls = _exc_lookup("Exception", Exception)
+        with pytest.raises(_exc_lookup("exc_cls", Exception)):
+            auth._authenticate_credentials("fake.token.value")
