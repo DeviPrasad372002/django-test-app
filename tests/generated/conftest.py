@@ -17,70 +17,31 @@ if _tr and os.path.isdir(_tr):
         _pkg.__path__ = [_tr]
         sys.modules["target"] = _pkg
 
-if os.getenv("TESTGEN_FIX_JINJA2","1") in ("1","true","yes"):
-    def _fix_jinja2_compatibility():
-        try:
-            import jinja2
-            if not hasattr(jinja2, 'Markup'):
-                try:
-                    from markupsafe import Markup, escape
-                    jinja2.Markup = Markup
-                    if not hasattr(jinja2, 'escape'):
-                        jinja2.escape = escape
-                except Exception:
-                    pass
-        except ImportError:
-            pass
-    _fix_jinja2_compatibility()
-
-if os.getenv("TESTGEN_FIX_COLLECTIONS","1") in ("1","true","yes"):
-    def _fix_collections_compatibility():
-        try:
-            import collections
-            import collections.abc as abc
-            for name in ['Mapping','MutableMapping','Sequence','Iterable','Container',
-                         'MutableSequence','Set','MutableSet','Iterator','Generator','Callable','Collection']:
-                if not hasattr(collections, name) and hasattr(abc, name):
-                    setattr(collections, name, getattr(abc, name))
-        except ImportError:
-            pass
-    _fix_collections_compatibility()
-
-if os.getenv("TESTGEN_FIX_FLASK","0") in ("1","true","yes"):
-    def _fix_flask_compatibility():
-        try:
-            import flask
-            if not hasattr(flask, 'escape'):
-                try:
-                    from markupsafe import escape
-                    flask.escape = escape
-                except Exception:
-                    pass
-        except ImportError:
-            pass
-    _fix_flask_compatibility()
-
-def _fix_marshmallow_compatibility():
+# Compatibility fixes
+def _fix():
     try:
-        import marshmallow as _mm
-        if not hasattr(_mm, "__version__"):
-            _mm.__version__ = "4"
-    except Exception:
-        pass
-_fix_marshmallow_compatibility()
+        import jinja2
+        if not hasattr(jinja2,'Markup'):
+            from markupsafe import Markup, escape
+            jinja2.Markup = Markup
+            if not hasattr(jinja2,'escape'):
+                jinja2.escape = escape
+    except Exception: pass
+    try:
+        import collections, collections.abc as abc
+        for n in ['Mapping','MutableMapping','Sequence','Iterable','Container','MutableSequence','Set','MutableSet','Iterator','Generator','Callable','Collection']:
+            if not hasattr(collections,n) and hasattr(abc,n):
+                setattr(collections,n,getattr(abc,n))
+    except Exception: pass
+_fix()
 
-# ---- SAFETY NET FIXTURES FOR GENERATED TESTS ----
 @pytest.fixture
-def expected_status():
-    return 404
+def expected_status(): return 404
 
 @pytest.fixture
-def expected_status_code(expected_status):
-    return expected_status
+def expected_status_code(expected_status): return expected_status
 
 @pytest.fixture
-def CalcError():
-    # Default to ZeroDivisionError when a module-specific error class is missing
-    return ZeroDivisionError
+def CalcError(): return ZeroDivisionError
 
 os.environ.setdefault('WTF_CSRF_ENABLED', 'False')
