@@ -1,0 +1,40 @@
+{
+  "runs": [
+    {
+      "timestamp": "2025-09-26T05:32:09.029001Z",
+      "files_generated": [
+        "test_unit_coverage_20250926_051752_01.py",
+        "test_unit_coverage_20250926_051752_02.py",
+        "test_unit_coverage_20250926_051752_03.py",
+        "test_unit_coverage_20250926_051752_04.py",
+        "test_integ_coverage_20250926_051752_01.py",
+        "test_integ_coverage_20250926_051752_02.py",
+        "test_integ_coverage_20250926_051752_03.py",
+        "test_integ_coverage_20250926_051752_04.py"
+      ],
+      "file_count": 8,
+      "change_summary": {
+        "added_or_modified": 44,
+        "deleted": 0,
+        "unchanged": 0,
+        "total_analyzed": 44,
+        "granular_mode": true
+      },
+      "generation_metadata": {
+        "total_size_bytes": 282923,
+        "average_file_size": 35365,
+        "test_function_count": 239
+      }
+    }
+  ],
+  "statistics": {
+    "total_runs": 1,
+    "total_files_generated": 8,
+    "last_generation": "2025-09-26T05:32:09.029001Z",
+    "generation_summary": {
+      "unit_tests": 4,
+      "integration_tests": 4,
+      "e2e_tests": 0
+    }
+  }
+}
